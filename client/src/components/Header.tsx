@@ -113,7 +113,7 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
                     {user ? (
                         <div className="flex items-center gap-3">
                             <span className="text-sm font-bold text-[#1C4E80] hidden md:block">
-                                היי, {user.firstName}
+                                היי, {user.firstName || 'אורח'}
                             </span>
                             <button
                                 onClick={logout}
@@ -124,7 +124,7 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
                                 <LogOut className="w-5 h-5" />
                             </button>
                             <div className="w-10 h-10 rounded-full bg-[#418EAB] text-white flex items-center justify-center font-bold shadow-sm">
-                                {user.firstName.charAt(0)}
+                                {(user.firstName || '?').charAt(0)}
                             </div>
                         </div>
                     ) : (

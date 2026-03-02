@@ -78,8 +78,6 @@ export async function authenticateUser(fullName: string, phone: string) {
                 default_value: f.value || f.default_value || ''
             }));
 
-            console.log('Origami Fields:', JSON.stringify(origamiFields));
-
             // Extract display values, handling object values for 'select-from-entity'
             const userFirstName = getFieldValue('first_name') || firstName;
             const userLastName = getFieldValue('last_name') || lastName;
@@ -166,22 +164,22 @@ export async function registerUser(userData: any) {
         console.log('Origami Registration Success:', JSON.stringify(data));
 
         const instance = data.data?.[0]?.instance_data;
-        if (instance) {
-            // Return consistent user object
-            return {
-                id: instance._id,
-                firstName: userData.firstName,
-                lastName: userData.lastName,
-                email: userData.email,
-                phone: userData.phone,
-                organization: userData.organization,
-                subOrganization: userData.subOrganization,
-                status: 'Active',
-                origamiId: instance._id
-            };
+        if (!instance) {
+            throw new Error('Registration failed: No instance data returned from Origami');
         }
 
-        return data;
+        // Return consistent user object
+        return {
+            id: instance._id,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            phone: userData.phone,
+            organization: userData.organization,
+            subOrganization: userData.subOrganization,
+            status: 'Active',
+            origamiId: instance._id
+        };
     } catch (error) {
         console.error('Error registering with Origami:', error);
         throw error;
