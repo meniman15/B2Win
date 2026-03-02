@@ -119,7 +119,7 @@ export async function registerUser(userData: any) {
     const body = {
         username: ORIGAMI_USERNAME,
         api_secret: ORIGAMI_SECRET,
-        entity_data_name: "user",
+        entity_data_name: "users",
         form_data: [
             {
                 group_data_name: "user_details",
@@ -152,8 +152,15 @@ export async function registerUser(userData: any) {
 
         if (!response.ok || data.error) {
             const errorMsg = data.error_message || data.error || 'Unknown error';
-            console.error('Origami Registration Failed:', response.status, errorMsg, data);
-            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+            if (response.status === 200) {
+                const errorMessage = errorMsg.message ? `${errorMsg.type} - ${errorMsg.message}` : errorMsg.type;
+                console.error('Origami Registration Failed:', errorMessage);
+                throw new Error(`Origami API error: ${errorMessage}`);
+            }
+            else {
+                console.error('Origami Registration Failed:', response.status, errorMsg, data);
+                throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+            }
         }
 
         console.log('Origami Registration Success:', JSON.stringify(data));
