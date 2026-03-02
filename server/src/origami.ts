@@ -78,6 +78,8 @@ export async function authenticateUser(fullName: string, phone: string) {
                 default_value: f.value || f.default_value || ''
             }));
 
+            console.log('Origami Fields:', JSON.stringify(origamiFields));
+
             // Extract display values, handling object values for 'select-from-entity'
             const userFirstName = getFieldValue('first_name') || firstName;
             const userLastName = getFieldValue('last_name') || lastName;

@@ -119,6 +119,7 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
                                 onClick={logout}
                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                                 title="התנתקות"
+                                aria-label="התנתקות"
                             >
                                 <LogOut className="w-5 h-5" />
                             </button>

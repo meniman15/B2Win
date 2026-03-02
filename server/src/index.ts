@@ -62,7 +62,7 @@ app.post('/api/auth/login', async (req, res) => {
         if (user) {
             res.json(user);
         } else {
-            res.status(401).json({ error: 'User not found in B2Win system' });
+            res.status(401).json({ error: 'משתמש לא נמצא נסה שנית' });
         }
     } catch (error) {
         console.error('Login error:', error);

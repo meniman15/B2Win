@@ -119,8 +119,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             placeholder="טלפון"
                                             value={loginPhone}
                                             onChange={(e) => setLoginPhone(e.target.value)}
-                                            className="w-full h-14 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all text-left placeholder:text-right"
-                                            dir="ltr"
+                                            className="w-full h-14 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all"
+                                            dir="rtl"
                                             required
                                         />
                                     </div>
