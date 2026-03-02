@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
+import { authenticateUser } from './origami.js';
 
 dotenv.config();
 
@@ -47,6 +48,26 @@ app.get('/api/search', (req, res) => {
         .map(p => ({ id: p.id, name: p.name, category: p.category }))
         .slice(0, 5);
     res.json(suggestions);
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { fullName, phone } = req.body;
+
+    if (!fullName || !phone) {
+        return res.status(400).json({ error: 'Full name and phone are required' });
+    }
+
+    try {
+        const user = await authenticateUser(fullName, phone);
+        if (user) {
+            res.json(user);
+        } else {
+            res.status(401).json({ error: 'User not found in B2Win system' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Internal server error during authentication' });
+    }
 });
 
 app.listen(PORT, () => {

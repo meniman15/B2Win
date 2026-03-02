@@ -18,23 +18,24 @@ export function useAuth() {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
-            console.log('Logging in with:', fullName, phone.length > 0 ? '(phone provided)' : '(no phone)');
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            console.log('Logging in with Origami:', fullName, phone);
+            const response = await fetch('http://localhost:5001/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fullName, phone })
+            });
 
-            // Mock success
-            const mockUser: User = {
-                id: '1',
-                firstName: 'ישראל',
-                lastName: 'ישראלי',
-                email: username,
-                phone: '050-1234567',
-                organization: 'ארגון כלשהו'
-            };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Login failed');
+            }
 
-            setState({ user: mockUser, isLoading: false, error: null });
+            const userData: User = await response.json();
+            setState({ user: userData, isLoading: false, error: null });
             return true;
-        } catch (err) {
-            setState(prev => ({ ...prev, isLoading: false, error: 'Login failed' }));
+        } catch (err: any) {
+            console.error('Login error:', err);
+            setState(prev => ({ ...prev, isLoading: false, error: err.message || 'Login failed' }));
             return false;
         }
     };
