@@ -128,7 +128,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                         disabled={isLoading}
                                         className="w-full h-14 bg-[#F39200] text-white rounded-xl font-black text-xl shadow-lg shadow-orange-200 hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                                     >
-                                        {isLoading && <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin" />}
+                                        {isLoading && <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                         <span>התחברות</span>
                                     </button>
                                     <button
@@ -218,7 +218,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             disabled={isLoading}
                                             className="flex-[2] h-12 bg-[#F39200] text-white rounded-xl font-black text-xl shadow-lg hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                                         >
-                                            {isLoading && <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />}
+                                            {isLoading && <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                                             <span>שמירה</span>
                                         </button>
                                     </div>
