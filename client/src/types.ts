@@ -30,4 +30,10 @@ export interface User {
     organization: string;
     subOrganization?: string;
     status?: string;
+    origamiId?: string;
+    origamiFields?: Array<{
+        field_id: string;
+        field_name: string;
+        default_value?: any;
+    }>;
 }
