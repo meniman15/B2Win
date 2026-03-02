@@ -148,15 +148,16 @@ export async function registerUser(userData: any) {
             body: JSON.stringify(body)
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Origami Registration Failed:', response.status, errorText);
-            throw new Error(`Origami API error: ${response.status} - ${errorText}`);
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            console.error('Origami Registration Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
         }
 
-        const data = await response.json();
         console.log('Origami Registration Success:', JSON.stringify(data));
-        
+
         // Return the created instance data if needed
         return data.data?.[0]?.instance_data || data;
     } catch (error) {
