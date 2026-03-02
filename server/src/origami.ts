@@ -108,3 +108,59 @@ export async function authenticateUser(fullName: string, phone: string) {
         throw error;
     }
 }
+
+export async function registerUser(userData: any) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/create_instance/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "user",
+        form_data: [
+            {
+                group_data_name: "user_details",
+                data: [
+                    {
+                        first_name: userData.firstName,
+                        last_name: userData.lastName,
+                        email: userData.email,
+                        telephone: userData.phone,
+                        organization: userData.organization,
+                        subOrganization: userData.subOrganization
+                    }
+                ]
+            }
+        ]
+    };
+
+    try {
+        console.log('Sending registration to Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Origami Registration Failed:', response.status, errorText);
+            throw new Error(`Origami API error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('Origami Registration Success:', JSON.stringify(data));
+        
+        // Return the created instance data if needed
+        return data.data?.[0]?.instance_data || data;
+    } catch (error) {
+        console.error('Error registering with Origami:', error);
+        throw error;
+    }
+}

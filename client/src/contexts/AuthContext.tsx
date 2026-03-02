@@ -70,12 +70,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
-            console.log('Registering user:', userData);
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            console.log('Registering user with Origami:', userData);
+            const response = await fetch('http://localhost:5001/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userData })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Registration failed');
+            }
+
+            const result = await response.json();
+            console.log('Registration result:', result);
+
+            // After registration, we might want to log the user in or just notify success
+            // For now, let's treat the registered userData as the current user
             setState({ user: userData, isLoading: false, error: null });
             return true;
         } catch (err: any) {
-            setState(prev => ({ ...prev, isLoading: false, error: 'Registration failed' }));
+            console.error('Registration error:', err);
+            setState(prev => ({ ...prev, isLoading: false, error: err.message || 'Registration failed' }));
             return false;
         }
     };

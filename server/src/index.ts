@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
-import { authenticateUser } from './origami.js';
+import { authenticateUser, registerUser } from './origami.js';
 
 dotenv.config();
 
@@ -48,6 +48,22 @@ app.get('/api/search', (req, res) => {
         .map(p => ({ id: p.id, name: p.name, category: p.category }))
         .slice(0, 5);
     res.json(suggestions);
+});
+
+app.post('/api/auth/register', async (req, res) => {
+    const { userData } = req.body;
+
+    if (!userData) {
+        return res.status(400).json({ error: 'User data is required' });
+    }
+
+    try {
+        const result = await registerUser(userData);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Registration error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error during registration' });
+    }
 });
 
 app.post('/api/auth/login', async (req, res) => {
