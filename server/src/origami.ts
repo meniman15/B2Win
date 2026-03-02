@@ -163,14 +163,14 @@ export async function registerUser(userData: any) {
 
         console.log('Origami Registration Success:', JSON.stringify(data));
 
-        const instance = data.data?.[0]?.instance_data;
+        const instance = data.results._id;
         if (!instance) {
             throw new Error('Registration failed: No instance data returned from Origami');
         }
 
         // Return consistent user object
         return {
-            id: instance._id,
+            id: instance,
             firstName: userData.firstName,
             lastName: userData.lastName,
             email: userData.email,
@@ -178,7 +178,6 @@ export async function registerUser(userData: any) {
             organization: userData.organization,
             subOrganization: userData.subOrganization,
             status: 'Active',
-            origamiId: instance._id
         };
     } catch (error) {
         console.error('Error registering with Origami:', error);
