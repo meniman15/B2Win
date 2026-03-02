@@ -14,7 +14,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const { login, register, isLoading, error } = useAuth();
 
     // Login fields
-    const [username, setUsername] = useState('');
+    const [fullName, setFullName] = useState('');
     const [loginPhone, setLoginPhone] = useState('');
 
     // Register fields
@@ -29,7 +29,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const success = await login(username, loginPhone);
+        const success = await login(fullName, loginPhone);
         if (success) onClose();
     };
 
@@ -105,9 +105,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                         <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                         <input
                                             type="text"
-                                            placeholder="שם משתמש"
-                                            value={username}
-                                            onChange={(e) => setUsername(e.target.value)}
+                                            placeholder="שם מלא"
+                                            value={fullName}
+                                            onChange={(e) => setFullName(e.target.value)}
                                             className="w-full h-14 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all text-gray-800"
                                             required
                                         />
