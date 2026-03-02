@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { User } from '../types';
 
 interface AuthState {
@@ -7,12 +7,27 @@ interface AuthState {
     error: string | null;
 }
 
+const STORAGE_KEY = 'b2win_user';
+
 export function useAuth() {
-    const [state, setState] = useState<AuthState>({
-        user: null,
-        isLoading: false,
-        error: null
+    // Initialize state from localStorage if available
+    const [state, setState] = useState<AuthState>(() => {
+        const savedUser = localStorage.getItem(STORAGE_KEY);
+        return {
+            user: savedUser ? JSON.parse(savedUser) : null,
+            isLoading: false,
+            error: null
+        };
     });
+
+    // Keep localStorage in sync with user state
+    useEffect(() => {
+        if (state.user) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.user));
+        } else {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+    }, [state.user]);
 
     const login = async (fullName: string, phone: string) => {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
