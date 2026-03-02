@@ -52,27 +52,50 @@ export async function authenticateUser(fullName: string, phone: string) {
 
         const data = await response.json();
         console.log('Origami Response Data:', JSON.stringify(data).substring(0, 200) + '...');
+        // Origami results are in a 'data' array, each with 'instance_data'
+        if (data && data.data && data.data.length > 0) {
+            const instance = data.data[0].instance_data;
+            const fieldGroups = instance.field_groups || [];
 
-        // Origami usually returns an array of instances
-        if (data && data.instances && data.instances.length > 0) {
-            const userInstance = data.instances[0];
+            // Find the user_details group
+            const userDetailsGroup = fieldGroups.find((g: any) =>
+                g.field_group_data?.group_data_name === 'user_details'
+            );
 
-            // Extract field metadata if available
-            const origamiFields = userInstance.fields_data ? userInstance.fields_data.map((f: any) => ({
+            // fields_data is an array of arrays as per the provided JSON: [[{...}, {...}]]
+            const fields = userDetailsGroup?.fields_data?.[0] || [];
+
+            // Helper to extract field values by their data name
+            const getFieldValue = (name: string) => {
+                const field = fields.find((f: any) => f.field_data_name === name);
+                return field?.value || field?.default_value || '';
+            };
+
+            // Map all fields for metadata
+            const origamiFields = fields.map((f: any) => ({
                 field_id: f.field_id,
                 field_name: f.field_name,
                 default_value: f.value || f.default_value || ''
-            })) : [];
+            }));
+
+            // Extract display values, handling object values for 'select-from-entity'
+            const userFirstName = getFieldValue('first_name') || firstName;
+            const userLastName = getFieldValue('last_name') || lastName;
+            const email = getFieldValue('email');
+            const telephone = getFieldValue('telephone') || phone;
+            const orgValue = getFieldValue('organization');
+            const subOrgValue = getFieldValue('subOrganization');
 
             return {
-                id: userInstance._id,
-                firstName: userInstance.first_name || firstName,
-                lastName: userInstance.last_name || lastName,
-                email: userInstance.email || '',
-                phone: userInstance.telephone || phone,
-                organization: userInstance.organization || 'B2Win',
-                status: userInstance.status || 'Active',
-                origamiId: userInstance._id,
+                id: instance._id,
+                firstName: userFirstName,
+                lastName: userLastName,
+                email: email,
+                phone: telephone,
+                organization: typeof orgValue === 'object' ? orgValue.text : (orgValue || 'B2Win'),
+                subOrganization: typeof subOrgValue === 'object' ? subOrgValue.text : subOrgValue,
+                status: getFieldValue('status') || 'Active',
+                origamiId: instance._id,
                 origamiFields: origamiFields
             };
         }
