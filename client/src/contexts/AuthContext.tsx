@@ -82,12 +82,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 throw new Error(errorData.error || 'Registration failed');
             }
 
-            const result = await response.json();
-            console.log('Registration result:', result);
+            const result: User = await response.json();
+            console.log('Registration success, user created:', result);
 
-            // After registration, we might want to log the user in or just notify success
-            // For now, let's treat the registered userData as the current user
-            setState({ user: userData, isLoading: false, error: null });
+            setState({ user: result, isLoading: false, error: null });
             return true;
         } catch (err: any) {
             console.error('Registration error:', err);
