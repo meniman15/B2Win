@@ -14,11 +14,11 @@ export function useAuth() {
         error: null
     });
 
-    const login = async (username: string, password: string) => {
+    const login = async (username: string, phone: string) => {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
-            console.log('Logging in with:', username, password.length > 0 ? '(password provided)' : '(no password)');
+            console.log('Logging in with:', username, phone.length > 0 ? '(phone provided)' : '(no phone)');
             await new Promise(resolve => setTimeout(resolve, 1500));
 
             // Mock success

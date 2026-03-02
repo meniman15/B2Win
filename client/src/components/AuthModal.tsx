@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Lock, Mail, Phone, Building } from 'lucide-react';
+import { X, User, Mail, Phone, Building } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { User as UserType } from '../types';
 
@@ -15,7 +15,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     // Login fields
     const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [loginPhone, setLoginPhone] = useState('');
 
     // Register fields
     const [formData, setFormData] = useState<UserType>({
@@ -29,7 +29,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const success = await login(username, password);
+        const success = await login(username, loginPhone);
         if (success) onClose();
     };
 
@@ -113,13 +113,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                         />
                                     </div>
                                     <div className="relative">
-                                        <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                         <input
-                                            type="password"
-                                            placeholder="סיסמה"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full h-14 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all text-gray-800"
+                                            type="tel"
+                                            placeholder="טלפון"
+                                            value={loginPhone}
+                                            onChange={(e) => setLoginPhone(e.target.value)}
+                                            className="w-full h-14 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all text-left placeholder:text-right"
+                                            dir="ltr"
                                             required
                                         />
                                     </div>
