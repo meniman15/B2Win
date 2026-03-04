@@ -51,14 +51,14 @@ app.get('/api/search', (req, res) => {
 });
 
 app.patch('/api/interest', async (req, res) => {
-    const { transactionId } = req.body;
+    const { transactionId, userId } = req.body;
 
-    if (!transactionId) {
-        return res.status(400).json({ error: 'Transaction ID is required' });
+    if (!transactionId || !userId) {
+        return res.status(400).json({ error: 'Transaction ID and User ID are required' });
     }
 
     try {
-        const result = await cancelInterest(transactionId);
+        const result = await cancelInterest(transactionId, userId);
         res.json(result);
     } catch (error: any) {
         console.error('Interest cancellation error:', error);

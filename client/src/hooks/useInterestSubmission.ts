@@ -45,18 +45,18 @@ export function useInterestSubmission() {
         }
     };
 
-    const cancelInterest = async (transactionId: string) => {
+    const cancelInterest = async (transactionId: string, userId: string) => {
         setIsLoading(true);
         setError(null);
         setIsSuccess(false);
         setIsCancelled(false);
 
         try {
-            console.log(`Canceling interest for transaction ${transactionId}`);
+            console.log(`Canceling interest for transaction ${transactionId} by user ${userId}`);
             const response = await fetch('http://localhost:5001/api/interest', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ transactionId })
+                body: JSON.stringify({ transactionId, userId })
             });
 
             if (!response.ok) {

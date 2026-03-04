@@ -251,7 +251,7 @@ export async function submitInterest(userData: any, transactionId: string, quant
     }
 }
 
-export async function cancelInterest(transactionId: string) {
+export async function cancelInterest(transactionId: string, userId: string) {
     if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
         throw new Error('Origami configuration is missing in .env');
     }
@@ -268,6 +268,11 @@ export async function cancelInterest(transactionId: string) {
                 "transaction_id.instance_id",
                 "=",
                 transactionId
+            ],
+            [
+                "interested_details.interested_id",
+                "=",
+                userId
             ]
         ],
         field: [
