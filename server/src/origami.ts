@@ -315,3 +315,193 @@ export async function cancelInterest(transactionId: string, userId: string) {
         throw error;
     }
 }
+
+export async function getProducts() {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_175",
+        return_groups: ["g_451", "g_452", "g_453", "g_455", "g_456"],
+        type: 2,
+        limit: [0, 25],
+        orderby: ["fld_product_sale_location", "desc"],
+        with_archive: 0
+    };
+
+    try {
+        console.log('Fetching products from Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            console.error('Origami Fetch Products Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        return data.data || [];
+    } catch (error) {
+        console.error('Error fetching products from Origami:', error);
+        throw error;
+    }
+}
+function getFieldValue(groups: any[], groupDataName: string, fieldDataName: string) {
+    const group = groups.find((g: any) => g.field_group_data.group_data_name === groupDataName);
+    if (!group || !group.fields_data || group.fields_data.length === 0) return null;
+
+    // Some groups are repeatable (FAQ), some are not.
+    // For non-repeatable, we take the first row [0].
+    const fields = group.fields_data[0];
+    const field = fields.find((f: any) => f.field_data_name === fieldDataName);
+    return field ? field.value : null;
+}
+
+function getRepeatableFieldValues(groups: any[], groupDataName: string, fieldMappings: { [key: string]: string }) {
+    const group = groups.find((g: any) => g.field_group_data.group_data_name === groupDataName);
+    if (!group || !group.fields_data || group.fields_data.length === 0) return [];
+
+    return group.fields_data.map((row: any[]) => {
+        const item: any = {};
+        for (const [prop, fieldDataName] of Object.entries(fieldMappings)) {
+            const field = row.find((f: any) => f.field_data_name === fieldDataName);
+            item[prop] = field ? field.value : null;
+        }
+        return item;
+    });
+}
+
+export function mapOrigamiProduct(raw: any) {
+    const instance = raw.instance_data;
+    const groups = instance.field_groups;
+
+    const categoryObj = getFieldValue(groups, 'g_451', 'fld_3027');
+    const subCategoryObj = getFieldValue(groups, 'g_451', 'fld_3028');
+    const categoryId = categoryObj?.instance_id || 'all';
+    const categoryName = categoryObj?.text || 'כללי';
+    const subCategoryName = subCategoryObj?.text || '';
+
+    const productName = getFieldValue(groups, 'g_451', 'fld_3142');
+    const productAbout = getFieldValue(groups, 'g_451', 'fld_3143');
+
+    const price = getFieldValue(groups, 'g_451', 'fld_3031');
+    const condition = getFieldValue(groups, 'g_451', 'fld_3033');
+    const status = getFieldValue(groups, 'g_451', 'fld_3038');
+    const locationObj = getFieldValue(groups, 'g_451', 'fld_3099');
+
+    const sellerName = getFieldValue(groups, 'g_452', 'fld_3034');
+    const logisticsComment = getFieldValue(groups, 'g_455', 'fld_3057');
+    const imageObj = getFieldValue(groups, 'g_456', 'fld_3030');
+
+    const faqRaw = getRepeatableFieldValues(groups, 'g_453', {
+        question: 'fld_3039',
+        answer: 'fld_3040'
+    });
+
+    const faq = faqRaw
+        .filter((f: any) => f.question)
+        .map((f: any) => ({
+            question: f.question,
+            answer: f.answer || 'טרם התקבלה תשובה'
+        }));
+
+    // Fallback name logic: use fld_3142, otherwise "Category - Subcategory", otherwise Category
+    const displayName = productName || (subCategoryName ? `${categoryName} - ${subCategoryName}` : categoryName);
+
+    // Fallback description: use fld_3143, otherwise logistics comment, otherwise generic
+    const displayDescription = productAbout || logisticsComment || 'אין תיאור זמין למוצר זה.';
+
+    const result = {
+        id: instance._id,
+        name: displayName,
+        category: categoryId,
+        categoryName: categoryName,
+        price: Number(price) || 0,
+        location: locationObj?.text || 'לא צוין',
+        imageUrl: imageObj?.location || 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=1000',
+        seller: String(sellerName || 'מוכר חסוי'),
+        status: String(condition || status || 'חדש'),
+        description: displayDescription,
+        manufacturer: subCategoryName || '-',
+        model: '',
+        purchaseDocumentation: imageObj?.file_name || '',
+        memberSince: instance.insertTimestamp ? new Date(instance.insertTimestamp).getFullYear().toString() : '2024',
+        faq: faq,
+        origamiId: instance._id
+    };
+
+    console.log('Mapped Product:', result.id, result.name, result.category, result.price);
+    return result;
+}
+
+export async function getCategories() {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_172", // Categories entity
+        type: 2,
+        limit: [0, 50],
+        with_archive: 0
+    };
+
+    try {
+        console.log('Fetching categories from Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            console.error('Origami Fetch Categories Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        return data.data || [];
+    } catch (error) {
+        console.error('Error fetching categories from Origami:', error);
+        throw error;
+    }
+}
+
+export function mapOrigamiCategory(raw: any) {
+    const instance = raw.instance_data;
+    const groups = instance.field_groups;
+
+    // Based on product mapping, Category Name is likely fld_3021
+    const group1 = groups[0];
+    const fields = group1?.fields_data?.[0] || [];
+    const nameField = fields.find((f: any) => f.field_data_name === 'fld_3021' || f.field_name === 'שם');
+    const name = nameField?.value || 'קטגוריה ללא שם';
+
+    return {
+        id: instance._id,
+        name: name,
+        icon: 'Package' // Default icon for all categories for now
+    };
+}

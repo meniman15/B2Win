@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
-import { authenticateUser, registerUser, submitInterest, cancelInterest } from './origami.js';
+import { authenticateUser, registerUser, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory } from './origami.js';
 
 dotenv.config();
 
@@ -13,41 +13,74 @@ const PORT = process.env.PORT || 5001;
 app.use(cors());
 app.use(express.json());
 
+app.get('/api/products', async (req, res) => {
+    try {
+        const rawProducts = await getProducts();
+        const mappedProducts = rawProducts.map(mapOrigamiProduct);
+
+        const { category, q } = req.query;
+        let filtered = [...mappedProducts];
+
+        if (category && category !== 'all') {
+            filtered = filtered.filter(p => p.category === category);
+        }
+
+        if (q && typeof q === 'string') {
+            const query = q.toLowerCase();
+            filtered = filtered.filter(p =>
+                p.name.toLowerCase().includes(query) ||
+                p.description.toLowerCase().includes(query)
+            );
+        }
+
+        res.json(filtered);
+    } catch (error: any) {
+        console.error('Fetch products error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching products' });
+    }
+});
+
+app.get('/api/categories', async (req, res) => {
+    try {
+        const rawCategories = await getCategories();
+        const mappedCategories = rawCategories.map(mapOrigamiCategory);
+
+        // Add "All" category if it's missing and expected by the UI
+        if (!mappedCategories.find((c: any) => c.id === 'all')) {
+            mappedCategories.unshift({ id: 'all', name: 'הכל', icon: 'LayoutGrid' });
+        }
+
+        res.json(mappedCategories);
+    } catch (error: any) {
+        console.error('Fetch categories error:', error);
+        // Fallback to mock data if Origami fails, so the UI doesn't break
+        res.json(categories);
+    }
+});
+
 app.get('/api/hello', (req, res) => {
     res.json({ message: 'Hello from the Be2Win Server!' });
 });
 
-app.get('/api/categories', (req, res) => {
-    res.json(categories);
-});
-
-app.get('/api/products', (req, res) => {
-    const { category, q } = req.query;
-    let filtered = [...products];
-
-    if (category) {
-        filtered = filtered.filter(p => p.category === category);
-    }
-
-    if (q && typeof q === 'string') {
-        const query = q.toLowerCase();
-        filtered = filtered.filter(p => p.name.toLowerCase().includes(query));
-    }
-
-    res.json(filtered);
-});
-
-app.get('/api/search', (req, res) => {
+app.get('/api/search', async (req, res) => {
     const { q } = req.query;
     if (!q || typeof q !== 'string') {
         return res.json([]);
     }
     const query = q.toLowerCase();
-    const suggestions = products
-        .filter(p => p.name.toLowerCase().includes(query))
-        .map(p => ({ id: p.id, name: p.name, category: p.category }))
-        .slice(0, 5);
-    res.json(suggestions);
+
+    try {
+        const rawProducts = await getProducts();
+        const mappedProducts = rawProducts.map(mapOrigamiProduct);
+        const suggestions = mappedProducts
+            .filter((p: any) => p.name.toLowerCase().includes(query))
+            .map((p: any) => ({ id: p.id, name: p.name, category: p.category }))
+            .slice(0, 5);
+        res.json(suggestions);
+    } catch (error: any) {
+        console.error('Search error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error during search' });
+    }
 });
 
 app.patch('/api/interest', async (req, res) => {
