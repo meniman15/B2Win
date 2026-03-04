@@ -353,7 +353,19 @@ export async function getProducts() {
             throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
         }
 
-        return data.data || [];
+        let instances = data.data || [];
+
+        // Filter by status: "חדש" or "במשא ומתן"
+        // fld_3038 is the status field in g_451
+        instances = instances.filter((item: any) => {
+            const groups = item.instance_data.field_groups;
+            const statusField = getFieldValue(groups, 'g_451', 'fld_3038');
+            // getFieldValue returns the value directly for select-list
+            const statusValue = statusField;
+            return statusValue === 'חדש' || statusValue === 'במשא ומתן';
+        });
+
+        return instances;
     } catch (error) {
         console.error('Error fetching products from Origami:', error);
         throw error;
