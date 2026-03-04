@@ -45,19 +45,29 @@ export function useInterestSubmission() {
         }
     };
 
-    const cancelInterest = async (productName: string) => {
+    const cancelInterest = async (transactionId: string) => {
         setIsLoading(true);
         setError(null);
         setIsSuccess(false);
         setIsCancelled(false);
 
         try {
-            console.log(`Canceling interest for ${productName}`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log(`Canceling interest for transaction ${transactionId}`);
+            const response = await fetch('http://localhost:5001/api/interest', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transactionId })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to cancel interest');
+            }
+
             setIsCancelled(true);
             return true;
-        } catch (err) {
-            setError('Failed to cancel interest.');
+        } catch (err: any) {
+            setError(err.message || 'Failed to cancel interest.');
             console.error('Cancellation error:', err);
             return false;
         } finally {

@@ -250,3 +250,63 @@ export async function submitInterest(userData: any, transactionId: string, quant
         throw error;
     }
 }
+
+export async function cancelInterest(transactionId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "interests",
+        return_groups: ["transaction_details"],
+        filter: [
+            [
+                "transaction_id.instance_id",
+                "=",
+                transactionId
+            ]
+        ],
+        field: [
+            [
+                "fld_3089",
+                "true"
+            ]
+        ]
+    };
+
+    try {
+        console.log('Sending interest cancellation to Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            if (response.status === 200) {
+                const errorMessage = errorMsg.message ? `${errorMsg.type} - ${errorMsg.message}` : errorMsg.type;
+                console.error('Origami Interest Cancellation Failed:', errorMessage);
+                throw new Error(`Origami API error: ${errorMessage}`);
+            } else {
+                console.error('Origami Interest Cancellation Failed:', response.status, errorMsg, data);
+                throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+            }
+        }
+
+        console.log('Origami Interest Cancellation Success:', JSON.stringify(data));
+        return data.results || data;
+    } catch (error) {
+        console.error('Error cancelling interest with Origami:', error);
+        throw error;
+    }
+}

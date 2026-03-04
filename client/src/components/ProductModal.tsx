@@ -29,7 +29,7 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
 
     const handleInterestClick = async () => {
         if (isInterested) {
-            const success = await cancelInterest(product?.name || '');
+            const success = await cancelInterest(product?.id || '');
             if (success) {
                 setIsInterested(false);
             }

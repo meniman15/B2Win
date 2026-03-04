@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
-import { authenticateUser, registerUser, submitInterest } from './origami.js';
+import { authenticateUser, registerUser, submitInterest, cancelInterest } from './origami.js';
 
 dotenv.config();
 
@@ -50,13 +50,31 @@ app.get('/api/search', (req, res) => {
     res.json(suggestions);
 });
 
+app.patch('/api/interest', async (req, res) => {
+    const { transactionId } = req.body;
+
+    if (!transactionId) {
+        return res.status(400).json({ error: 'Transaction ID is required' });
+    }
+
+    try {
+        const result = await cancelInterest(transactionId);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Interest cancellation error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error during interest cancellation' });
+    }
+});
+
 app.post('/api/interest', async (req, res) => {
     const { userData, transactionId, quantity } = req.body;
 
     if (!userData || !transactionId || !quantity) {
         return res.status(400).json({ error: 'User data, transaction ID, and quantity are required' });
     }
-
+    console.log('userData', userData);
+    console.log('transactionId', transactionId);
+    console.log('quantity', quantity);
     try {
         const result = await submitInterest(userData, transactionId, quantity);
         res.json(result);
