@@ -13,6 +13,7 @@ export interface Product {
     purchaseDocumentation?: string;
     memberSince?: string;
     faq?: { question: string; answer?: string }[];
+    origamiId?: string;
 }
 
 export interface Category {
@@ -47,7 +48,8 @@ export const products: Product[] = [
         model: 'Galaxy Book F2',
         purchaseDocumentation: 'קיים',
         memberSince: '2023',
-        faq: [{ question: 'מה מצב הסוללה של המוצר ?', answer: 'הסוללה במצב מצוין, מחזיקה כ-8 שעות עבודה רציפה.' }]
+        faq: [{ question: 'מה מצב הסוללה של המוצר ?', answer: 'הסוללה במצב מצוין, מחזיקה כ-8 שעות עבודה רציפה.' }],
+        origamiId: '69a4422397f56fc760066760'
     },
     {
         id: 'p2',

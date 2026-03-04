@@ -13,6 +13,7 @@ export interface Product {
     purchaseDocumentation?: string;
     memberSince?: string;
     faq?: { question: string; answer?: string }[];
+    origamiId?: string;
 }
 
 export interface Category {

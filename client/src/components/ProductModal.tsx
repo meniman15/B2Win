@@ -259,7 +259,7 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                         onClose={() => setIsInterestFormOpen(false)}
                         onSubmit={async (data) => {
                             if (product && user) {
-                                const success = await submitInterest(user, product.id, data);
+                                const success = await submitInterest(user, product.origamiId || product.id, data);
                                 if (success) {
                                     setIsInterested(true);
                                 }
