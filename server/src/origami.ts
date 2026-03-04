@@ -445,7 +445,7 @@ export function mapOrigamiProduct(raw: any) {
         location: locationObj?.text || 'לא צוין',
         imageUrl: imageObj?.location || 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=1000',
         seller: String(sellerName || 'מוכר חסוי'),
-        status: String(condition || status || 'חדש'),
+        status: String(status || 'חדש'),
         description: displayDescription,
         manufacturer: subCategoryName || '-',
         model: '',
@@ -505,7 +505,6 @@ export function mapOrigamiCategory(raw: any) {
     const instance = raw.instance_data;
     const groups = instance.field_groups;
 
-    // Based on product mapping, Category Name is likely fld_3021
     const group1 = groups[0];
     const fields = group1?.fields_data?.[0] || [];
     const nameField = fields.find((f: any) => f.field_data_name === 'fld_3021' || f.field_name === 'שם');
