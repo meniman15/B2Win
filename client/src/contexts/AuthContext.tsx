@@ -40,6 +40,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [state.user]);
 
+    // Silent refresh on page load
+    useEffect(() => {
+        if (state.user && state.user.firstName && state.user.phone) {
+            console.log('Refreshing user data silently...');
+            login(state.user.firstName + (state.user.lastName ? ' ' + state.user.lastName : ''), state.user.phone)
+                .catch(err => console.error('Silent refresh failed:', err));
+        }
+    }, []); // Only on mount
+
     const login = async (fullName: string, phone: string) => {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 

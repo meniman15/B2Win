@@ -34,6 +34,19 @@ function App() {
       .catch(err => console.error('Error fetching categories:', err));
   }, []);
 
+  const handleInterestChange = (productId: string, isInterested: boolean, userId: string) => {
+    setProducts(prevProducts => prevProducts.map(p => {
+      if (p.id === productId) {
+        const currentIds = p.interestedUserIds || [];
+        const updatedIds = isInterested
+          ? [...currentIds.filter(id => id !== userId), userId]
+          : currentIds.filter(id => id !== userId);
+        return { ...p, interestedUserIds: updatedIds };
+      }
+      return p;
+    }));
+  };
+
   useEffect(() => {
     setLoading(true);
     let url = 'http://localhost:5001/api/products?';
@@ -180,6 +193,7 @@ function App() {
         product={selectedProduct}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onInterestChange={handleInterestChange}
       />
 
       <AuthModal

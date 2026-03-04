@@ -1,5 +1,6 @@
 import { Heart } from 'lucide-react';
 import { getTagColor } from '../utils/theme';
+import { useAuth } from '../hooks/useAuth';
 
 import type { Product } from '../types';
 
@@ -9,7 +10,11 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onClick }: ProductCardProps) {
+    const { user } = useAuth();
+    const isUserInterested = user && product.interestedUserIds?.includes(user.id || '');
+
     const getTagText = (status: string) => {
+        if (isUserInterested) return 'הבעתי עניין';
         return status;
     };
 
@@ -40,10 +45,9 @@ export default function ProductCard({ product, onClick }: ProductCardProps) {
                     <Heart className="w-6 h-6 stroke-[2.5px]" />
                 </button>
 
-                {/* Availability Tag with white cutout effect */}
                 <div className="absolute bottom-0 left-0 bg-[#f9fafb] pt-2 pr-2 rounded-tr-[1.5rem]">
-                    <div className={`px-5 py-2 rounded-xl text-lg font-bold text-white shadow-sm cursor-pointer transition-all hover:brightness-110 active:scale-95 ${getTagColor(product.status)}`}>
-                        {getTagText(product.status)}
+                    <div className={`px-5 py-2 rounded-xl text-lg font-bold text-white shadow-sm cursor-pointer transition-all hover:brightness-110 active:scale-95 ${isUserInterested ? getTagColor('הבעתי עניין') : getTagColor(product.status)}`}>
+                        {isUserInterested ? getTagText('הבעתי עניין') : getTagText(product.status)}
                     </div>
                 </div>
             </div>

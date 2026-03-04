@@ -14,7 +14,7 @@ export interface Product {
     purchaseDocumentation?: string;
     memberSince?: string;
     faq?: { question: string; answer?: string }[];
-    origamiId?: string;
+    interestedUserIds?: string[];
 }
 
 export interface Category {
@@ -32,10 +32,10 @@ export interface User {
     organization: string;
     subOrganization?: string;
     status?: string;
-    origamiId?: string;
     origamiFields?: Array<{
         field_id: string;
         field_name: string;
         default_value?: any;
     }>;
+    interestList?: string[];
 }

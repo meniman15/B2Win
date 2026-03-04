@@ -66,7 +66,7 @@ export async function authenticateUser(fullName: string, phone: string) {
             const fields = userDetailsGroup?.fields_data?.[0] || [];
 
             // Helper to extract field values by their data name
-            const getFieldValue = (name: string) => {
+            const getDetailsFieldValue = (name: string) => {
                 const field = fields.find((f: any) => f.field_data_name === name);
                 return field?.value || field?.default_value || '';
             };
@@ -79,12 +79,52 @@ export async function authenticateUser(fullName: string, phone: string) {
             }));
 
             // Extract display values, handling object values for 'select-from-entity'
-            const userFirstName = getFieldValue('first_name') || firstName;
-            const userLastName = getFieldValue('last_name') || lastName;
-            const email = getFieldValue('email');
-            const telephone = getFieldValue('telephone') || phone;
-            const orgValue = getFieldValue('organization');
-            const subOrgValue = getFieldValue('subOrganization');
+            const userFirstName = getDetailsFieldValue('first_name') || firstName;
+            const userLastName = getDetailsFieldValue('last_name') || lastName;
+            const email = getDetailsFieldValue('email');
+            const telephone = getDetailsFieldValue('telephone') || phone;
+            const orgValue = getDetailsFieldValue('organization');
+            const subOrgValue = getDetailsFieldValue('subOrganization');
+
+            // Fetch user's active interests
+            const userId = instance._id;
+            const interestList: string[] = [];
+            try {
+                const interestsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+                const interestsBody = {
+                    username: ORIGAMI_USERNAME,
+                    api_secret: ORIGAMI_SECRET,
+                    entity_data_name: "interests",
+                    return_groups: ["transaction_details"],
+                    type: 2,
+                    with_archive: 0,
+                    filter: [
+                        ["fld_3089", "!=", "true"],
+                        ["interested_details.interested_id", "=", userId]
+                    ]
+                };
+
+                const interestsResponse = await fetch(interestsUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(interestsBody)
+                });
+
+                if (interestsResponse.ok) {
+                    const interestsData = await interestsResponse.json();
+                    const interestsItems = interestsData.data || [];
+                    interestsItems.forEach((item: any) => {
+                        const groups = item.instance_data.field_groups;
+                        const transId = getFieldValue(groups, 'transaction_details', 'transaction_id')?.instance_id;
+                        if (transId && !interestList.includes(transId)) {
+                            interestList.push(transId);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching user interests during auth:', err);
+                // Non-blocking, continue with empty interest list
+            }
 
             return {
                 id: instance._id,
@@ -94,9 +134,9 @@ export async function authenticateUser(fullName: string, phone: string) {
                 phone: telephone,
                 organization: typeof orgValue === 'object' ? orgValue.text : (orgValue || 'B2Win'),
                 subOrganization: typeof subOrgValue === 'object' ? subOrgValue.text : subOrgValue,
-                status: getFieldValue('status') || 'Active',
-                origamiId: instance._id,
-                origamiFields: origamiFields
+                status: getDetailsFieldValue('status') || 'Active',
+                origamiFields: origamiFields,
+                interestList: interestList
             };
         }
 
@@ -200,6 +240,7 @@ export async function submitInterest(userData: any, transactionId: string, quant
                 group_data_name: "interested_details",
                 data: [
                     {
+                        interested_id: userData.id,
                         interested_full_name: `${userData.firstName} ${userData.lastName}`,
                         interested_email: userData.email,
                         interested_telephone: userData.phone,
@@ -356,13 +397,66 @@ export async function getProducts() {
         let instances = data.data || [];
 
         // Filter by status: "חדש" or "במשא ומתן"
-        // fld_3038 is the status field in g_451
         instances = instances.filter((item: any) => {
             const groups = item.instance_data.field_groups;
-            const statusField = getFieldValue(groups, 'g_451', 'fld_3038');
-            // getFieldValue returns the value directly for select-list
-            const statusValue = statusField;
+            const statusValue = getFieldValue(groups, 'g_451', 'fld_3038');
             return statusValue === 'חדש' || statusValue === 'במשא ומתן';
+        });
+
+        // Map product IDs for efficient interest filtering
+        const productIds = instances.map((inst: any) => inst.instance_data._id);
+
+        const interestMap: { [key: string]: string[] } = {};
+
+        if (productIds.length > 0) {
+            // Fetch active interests for these specific products
+            const interestsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+            const interestsBody = {
+                username: ORIGAMI_USERNAME,
+                api_secret: ORIGAMI_SECRET,
+                entity_data_name: "interests",
+                return_groups: ["transaction_details", "interested_details"],
+                type: 2,
+                with_archive: 0,
+                filter: [
+                    ["fld_3089", "!=", "true"],
+                    ["transaction_details.transaction_id.instance_id", "in", productIds]
+                ]
+            };
+
+            const interestsResponse = await fetch(interestsUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(interestsBody)
+            });
+
+            const interestsData = await interestsResponse.json();
+            const interestsList = interestsData.data || [];
+
+            interestsList.forEach((item: any) => {
+                const groups = item.instance_data.field_groups;
+                const transId = getFieldValue(groups, 'transaction_details', 'transaction_id')?.instance_id;
+                const userIdVal = getFieldValue(groups, 'interested_details', 'interested_id');
+                const userId = (userIdVal && typeof userIdVal === 'object') ? userIdVal.instance_id : userIdVal;
+
+                if (transId && userId) {
+                    if (!interestMap[transId]) interestMap[transId] = [];
+                    if (!interestMap[transId].includes(userId)) {
+                        interestMap[transId].push(userId);
+                    }
+                }
+            });
+
+            console.log('Interest Map populated:', JSON.stringify(interestMap, null, 2));
+        }
+
+        // Inject interests into instances for mapping
+        instances.forEach((inst: any) => {
+            const prodId = inst.instance_data._id;
+            inst.interestedUserIds = interestMap[prodId] || [];
+            if (inst.interestedUserIds.length > 0) {
+                console.log(`Product ${prodId} has interests:`, inst.interestedUserIds);
+            }
         });
 
         return instances;
@@ -399,6 +493,7 @@ function getRepeatableFieldValues(groups: any[], groupDataName: string, fieldMap
 export function mapOrigamiProduct(raw: any) {
     const instance = raw.instance_data;
     const groups = instance.field_groups;
+    const interestedUserIds = raw.interestedUserIds || [];
 
     const categoryObj = getFieldValue(groups, 'g_451', 'fld_3027');
     const subCategoryObj = getFieldValue(groups, 'g_451', 'fld_3028');
@@ -450,9 +545,9 @@ export function mapOrigamiProduct(raw: any) {
         manufacturer: subCategoryName || '-',
         model: '',
         purchaseDocumentation: imageObj?.file_name || '',
+        interestedUserIds: interestedUserIds,
         memberSince: instance.insertTimestamp ? new Date(instance.insertTimestamp).getFullYear().toString() : '2024',
         faq: faq,
-        origamiId: instance._id
     };
 
     console.log('Mapped Product:', result.id, result.name, result.category, result.price);

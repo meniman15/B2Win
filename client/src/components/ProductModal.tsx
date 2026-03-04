@@ -12,13 +12,25 @@ interface ProductModalProps {
     product: Product | null;
     isOpen: boolean;
     onClose: () => void;
+    onInterestChange?: (productId: string, isInterested: boolean, userId: string) => void;
 }
 
-export default function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
+export default function ProductModal({ product, isOpen, onClose, onInterestChange }: ProductModalProps) {
     const [isInterestFormOpen, setIsInterestFormOpen] = useState(false);
     const [isInterested, setIsInterested] = useState(false);
     const { user } = useAuth();
     const { submitInterest, cancelInterest, isLoading, isSuccess, isCancelled, reset } = useInterestSubmission();
+
+    // Initialize isInterested from product data
+    useEffect(() => {
+        if (product && user && isOpen) {
+            const userId = user.id || '';
+            const isInProductList = product.interestedUserIds?.includes(userId) || false;
+            // Check user list as well for immediate feedback reinforcement
+            const isInUserList = !!userId && user.interestList?.includes(product.id) || false;
+            setIsInterested(isInProductList || isInUserList);
+        }
+    }, [product, user, isOpen]);
 
     // Reset submission state when modal closes or product changes
     useEffect(() => {
@@ -30,9 +42,13 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
     const handleInterestClick = async () => {
         if (isInterested) {
             if (product && user) {
-                const success = await cancelInterest(product.id, user.origamiId || user.id || '');
+                const success = await cancelInterest(product.id, user.id || '');
                 if (success) {
                     setIsInterested(false);
+                    if (user.interestList) {
+                        user.interestList = user.interestList.filter(id => id !== product.id);
+                    }
+                    onInterestChange?.(product.id, false, user.id || '');
                 }
             }
         } else {
@@ -182,8 +198,10 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                                                     }}
                                                     className="w-full h-full object-cover"
                                                 />
-                                                <div className={`absolute bottom-6 right-6 px-6 py-2 rounded shadow-lg text-sm font-bold text-white uppercase tracking-wider ${getTagColor(product.status)}`}>
-                                                    {product.status}
+                                                <div className="absolute bottom-6 right-6">
+                                                    <div className={`px-6 py-2 rounded shadow-lg text-sm font-bold text-white uppercase tracking-wider ${isInterested ? getTagColor('הבעתי עניין') : getTagColor(product.status)}`}>
+                                                        {isInterested ? 'הבעתי עניין' : product.status}
+                                                    </div>
                                                 </div>
 
                                                 {/* Navigation Arrows (Visual only) */}
@@ -267,6 +285,12 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                                 const success = await submitInterest(user, product.id, data);
                                 if (success) {
                                     setIsInterested(true);
+                                    if (user.interestList && !user.interestList.includes(product.id)) {
+                                        user.interestList.push(product.id);
+                                    } else if (!user.interestList) {
+                                        user.interestList = [product.id];
+                                    }
+                                    onInterestChange?.(product.id, true, user.id || '');
                                 }
                             } else {
                                 alert('יש להתחבר כדי להגיש התעניינות');
