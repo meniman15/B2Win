@@ -138,29 +138,38 @@ function App() {
             ) : (
               /* Grouped Home Page View */
               <div className="space-y-16">
-                {categories.map(category => {
-                  const categoryProducts = products.filter(p => p.category === category.id).slice(0, 4);
-                  if (categoryProducts.length === 0) return null;
+                {categories.length > 0 && categories.some(category => products.some(p => p.category === category.id)) ? (
+                  categories.map(category => {
+                    const categoryProducts = products.filter(p => p.category === category.id).slice(0, 4);
+                    if (categoryProducts.length === 0) return null;
 
-                  return (
-                    <section key={category.id} className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-2xl font-black text-[#F39200]">{category.name}</h3>
-                        <button
-                          onClick={() => setSelectedCategory(category.id)}
-                          className="text-[#F39200] font-bold text-sm flex items-center gap-1 hover:underline"
-                        >
-                          צפה בהכל ←
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {categoryProducts.map(product => (
-                          <ProductCard key={product.id} product={product} onClick={handleProductClick} />
-                        ))}
-                      </div>
-                    </section>
-                  );
-                })}
+                    return (
+                      <section key={category.id} className="space-y-6">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-2xl font-black text-[#F39200]">{category.name}</h3>
+                          <button
+                            onClick={() => setSelectedCategory(category.id)}
+                            className="text-[#F39200] font-bold text-sm flex items-center gap-1 hover:underline"
+                          >
+                            צפה בהכל ←
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                          {categoryProducts.map(product => (
+                            <ProductCard key={product.id} product={product} onClick={handleProductClick} />
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })
+                ) : (
+                  /* Fallback when categories don't match or are empty */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {products.map(product => (
+                      <ProductCard key={product.id} product={product} onClick={handleProductClick} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

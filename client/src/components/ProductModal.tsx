@@ -92,9 +92,9 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                                                     {product.name}
                                                 </h1>
                                                 <div className="flex items-center gap-2 text-sm text-[#418EAB] font-medium mt-1">
-                                                    <span>{product.manufacturer || 'כללי'}</span>
+                                                    <span>{product.manufacturer || '-'}</span>
                                                     <span>|</span>
-                                                    <span>{product.category || 'מחשבים'}</span>
+                                                    <span>{product.categoryName || product.category || 'מחשבים'}</span>
                                                 </div>
                                             </div>
 
@@ -177,6 +177,9 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                                                 <img
                                                     src={product.imageUrl}
                                                     alt={product.name}
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=1000';
+                                                    }}
                                                     className="w-full h-full object-cover"
                                                 />
                                                 <div className={`absolute bottom-6 right-6 px-6 py-2 rounded shadow-lg text-sm font-bold text-white uppercase tracking-wider ${getTagColor(product.status)}`}>
