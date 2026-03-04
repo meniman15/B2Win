@@ -3,6 +3,7 @@ import { ArrowRight, MapPin, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTagColor } from '../utils/theme';
 import { useInterestSubmission } from '../hooks/useInterestSubmission';
+import { useAuth } from '../hooks/useAuth';
 import InterestFormModal from './InterestFormModal';
 
 import type { Product } from '../types';
@@ -16,6 +17,7 @@ interface ProductModalProps {
 export default function ProductModal({ product, isOpen, onClose }: ProductModalProps) {
     const [isInterestFormOpen, setIsInterestFormOpen] = useState(false);
     const [isInterested, setIsInterested] = useState(false);
+    const { user } = useAuth();
     const { submitInterest, cancelInterest, isLoading, isSuccess, isCancelled, reset } = useInterestSubmission();
 
     // Reset submission state when modal closes or product changes
@@ -256,11 +258,13 @@ export default function ProductModal({ product, isOpen, onClose }: ProductModalP
                         isLoading={isLoading}
                         onClose={() => setIsInterestFormOpen(false)}
                         onSubmit={async (data) => {
-                            if (product) {
-                                const success = await submitInterest(product.name, data);
+                            if (product && user) {
+                                const success = await submitInterest(user, product.id, data);
                                 if (success) {
                                     setIsInterested(true);
                                 }
+                            } else {
+                                alert('יש להתחבר כדי להגיש התעניינות');
                             }
                         }}
                         productName={product.name}

@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
-import { authenticateUser, registerUser } from './origami.js';
+import { authenticateUser, registerUser, submitInterest } from './origami.js';
 
 dotenv.config();
 
@@ -48,6 +48,22 @@ app.get('/api/search', (req, res) => {
         .map(p => ({ id: p.id, name: p.name, category: p.category }))
         .slice(0, 5);
     res.json(suggestions);
+});
+
+app.post('/api/interest', async (req, res) => {
+    const { userData, transactionId, quantity } = req.body;
+
+    if (!userData || !transactionId || !quantity) {
+        return res.status(400).json({ error: 'User data, transaction ID, and quantity are required' });
+    }
+
+    try {
+        const result = await submitInterest(userData, transactionId, quantity);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Interest submission error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error during interest submission' });
+    }
 });
 
 app.post('/api/auth/register', async (req, res) => {

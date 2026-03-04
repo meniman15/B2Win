@@ -184,3 +184,69 @@ export async function registerUser(userData: any) {
         throw error;
     }
 }
+export async function submitInterest(userData: any, transactionId: string, quantity: number) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/create_instance/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "interests",
+        form_data: [
+            {
+                group_data_name: "interested_details",
+                data: [
+                    {
+                        interested_full_name: `${userData.firstName} ${userData.lastName}`,
+                        interested_email: userData.email,
+                        interested_telephone: userData.phone,
+                        desired_quantity: quantity
+                    }
+                ]
+            },
+            {
+                group_data_name: "transaction_details",
+                data: [
+                    {
+                        transaction_id: transactionId
+                    }
+                ]
+            }
+        ]
+    };
+
+    try {
+        console.log('Sending interest submission to Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            if (response.status === 200) {
+                const errorMessage = errorMsg.message ? `${errorMsg.type} - ${errorMsg.message}` : errorMsg.type;
+                console.error('Origami Interest Submission Failed:', errorMessage);
+                throw new Error(`Origami API error: ${errorMessage}`);
+            } else {
+                console.error('Origami Interest Submission Failed:', response.status, errorMsg, data);
+                throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+            }
+        }
+
+        console.log('Origami Interest Submission Success:', JSON.stringify(data));
+        return data.results || data;
+    } catch (error) {
+        console.error('Error submitting interest with Origami:', error);
+        throw error;
+    }
+}

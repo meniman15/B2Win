@@ -11,19 +11,33 @@ export function useInterestSubmission() {
     const [isCancelled, setIsCancelled] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const submitInterest = async (productName: string, data: InterestSubmissionData) => {
+    const submitInterest = async (userData: any, productId: string, data: InterestSubmissionData) => {
         setIsLoading(true);
         setError(null);
         setIsSuccess(false);
         setIsCancelled(false);
 
         try {
-            console.log(`Submitting interest for ${productName}:`, data);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log(`Submitting interest for product ${productId}:`, data);
+            const response = await fetch('http://localhost:5001/api/interest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userData,
+                    transactionId: productId,
+                    quantity: data.quantity
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to submit interest');
+            }
+
             setIsSuccess(true);
             return true;
-        } catch (err) {
-            setError('Failed to submit interest.');
+        } catch (err: any) {
+            setError(err.message || 'Failed to submit interest.');
             console.error('Submission error:', err);
             return false;
         } finally {
