@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowRight, MapPin, ChevronLeft } from 'lucide-react';
+import { ArrowRight, MapPin, Phone, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTagColor } from '../utils/theme';
 import { useInterestSubmission } from '../hooks/useInterestSubmission';
@@ -12,10 +12,11 @@ interface ProductModalProps {
     product: Product | null;
     isOpen: boolean;
     onClose: () => void;
+    onLoginClick: () => void;
     onInterestChange?: (productId: string, isInterested: boolean, userId: string) => void;
 }
 
-export default function ProductModal({ product, isOpen, onClose, onInterestChange }: ProductModalProps) {
+export default function ProductModal({ product, isOpen, onClose, onLoginClick, onInterestChange }: ProductModalProps) {
     const [isInterestFormOpen, setIsInterestFormOpen] = useState(false);
     const [isInterested, setIsInterested] = useState(false);
     const { user } = useAuth();
@@ -40,6 +41,11 @@ export default function ProductModal({ product, isOpen, onClose, onInterestChang
     }, [isOpen, reset]);
 
     const handleInterestClick = async () => {
+        if (!user) {
+            onLoginClick();
+            return;
+        }
+
         if (isInterested) {
             if (product && user) {
                 const success = await cancelInterest(product.id, user.id || '');
@@ -108,19 +114,54 @@ export default function ProductModal({ product, isOpen, onClose, onInterestChang
                                                     {product.name}
                                                 </h1>
                                                 <div className="flex items-center gap-2 text-sm text-[#418EAB] font-medium mt-1">
-                                                    <span>{product.manufacturer || '-'}</span>
+                                                    <span>{product.location || '-'}</span>
                                                     <span>|</span>
                                                     <span>{product.categoryName || product.category || 'מחשבים'}</span>
                                                 </div>
                                             </div>
 
                                             <div className="space-y-3">
-                                                <button className="w-full bg-[#F39200] text-white py-3.5 rounded-full font-bold shadow-md hover:bg-[#d98300] transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(243,146,0,0.3)]">
-                                                    שליחת הודעה
-                                                </button>
-                                                <button className="w-full bg-white text-[#F39200] border-2 border-[#F39200] py-3 rounded-full font-bold hover:bg-orange-50 transition-all flex items-center justify-center gap-2">
-                                                    טלפון
-                                                </button>
+                                                {isInterested ? (
+                                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
+                                                        {product.sellerEmail && (
+                                                            (product.sellerEmail.length > 25) ? (
+                                                                <a
+                                                                    href={`mailto:${product.sellerEmail}`}
+                                                                    className="flex items-center gap-2 text-[#418EAB] hover:underline font-bold p-2 transition-all justify-center"
+                                                                >
+                                                                    <Mail className="w-5 h-5" />
+                                                                    שלח מייל ל-{product.sellerEmail}
+                                                                </a>
+                                                            ) : (
+                                                                <a
+                                                                    href={`mailto:${product.sellerEmail}`}
+                                                                    className="w-full bg-[#F39200] text-white py-3.5 rounded-full font-bold shadow-md hover:bg-[#d98300] transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(243,146,0,0.3)]"
+                                                                >
+                                                                    <Mail className="w-5 h-5" />
+                                                                    שלח ל-{product.sellerEmail}
+                                                                </a>
+                                                            )
+                                                        )}
+                                                        {product.sellerPhone && (
+                                                            <a
+                                                                href={`tel:${product.sellerPhone}`}
+                                                                className="w-full bg-white text-[#F39200] border-2 border-[#F39200] py-3 rounded-full font-bold hover:bg-orange-50 transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                <Phone className="w-5 h-5" />
+                                                                {product.sellerPhone}
+                                                            </a>
+                                                        )}
+                                                        {!product.sellerEmail && !product.sellerPhone && (
+                                                            <div className="p-4 bg-gray-50 rounded-2xl text-center">
+                                                                <p className="text-gray-500 font-bold text-sm">פרטי קשר לא הוזנו על ידי המוכר</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl text-center">
+                                                        <p className="text-[#F39200] font-bold text-sm">הבע התעניינות במוצר כדי לחשוף את פרטי המוכר</p>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="mt-10 pt-6 border-t border-gray-100 flex items-center justify-between">
@@ -132,9 +173,6 @@ export default function ProductModal({ product, isOpen, onClose, onInterestChang
                                                         <div className="font-bold text-gray-800">{product.seller}</div>
                                                         <div className="text-xs text-gray-400">חבר משנת {product.memberSince || '2023'}</div>
                                                     </div>
-                                                </div>
-                                                <div className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-[#418EAB]">
-                                                    <MapPin className="w-4 h-4" />
                                                 </div>
                                             </div>
                                         </div>
@@ -188,8 +226,8 @@ export default function ProductModal({ product, isOpen, onClose, onInterestChang
                                     {/* Right Side - Image and Details (Takes 8 cols) */}
                                     <div className="lg:col-span-8 space-y-8">
                                         {/* Hero Image Section */}
-                                        <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group">
-                                            <div className="aspect-video relative">
+                                        <div className="relative aspect-video group">
+                                            <div className="w-full h-full overflow-hidden rounded-[2rem] border border-gray-100">
                                                 <img
                                                     src={product.imageUrl}
                                                     alt={product.name}
@@ -198,19 +236,13 @@ export default function ProductModal({ product, isOpen, onClose, onInterestChang
                                                     }}
                                                     className="w-full h-full object-cover"
                                                 />
-                                                <div className="absolute bottom-6 right-6">
-                                                    <div className={`px-6 py-2 rounded shadow-lg text-sm font-bold text-white uppercase tracking-wider ${isInterested ? getTagColor('הבעתי עניין') : getTagColor(product.status)}`}>
-                                                        {isInterested ? 'הבעתי עניין' : product.status}
-                                                    </div>
-                                                </div>
-
-                                                {/* Navigation Arrows (Visual only) */}
-                                                <div className="absolute inset-y-0 left-4 flex items-center">
-                                                    <button className="p-2 bg-white/90 rounded-full text-gray-600 shadow-md hover:bg-white">
-                                                        <ChevronLeft className="w-6 h-6" />
-                                                    </button>
+                                            </div>
+                                            <div className="absolute bottom-0 left-0 bg-[#f9fafb] pt-2 pr-2 rounded-tr-[1.5rem]">
+                                                <div className={`px-5 py-2 rounded-xl text-lg font-bold text-white shadow-sm cursor-pointer transition-all hover:brightness-110 active:scale-95 ${isInterested ? getTagColor('הבעתי עניין') : getTagColor(product.status)}`}>
+                                                    {isInterested ? 'הבעתי עניין' : product.status}
                                                 </div>
                                             </div>
+
                                         </div>
 
                                         {/* About Section */}
@@ -328,7 +360,6 @@ export default function ProductModal({ product, isOpen, onClose, onInterestChang
                             </motion.div>
                         )}
                     </AnimatePresence>
-
                 </div>
             )}
         </AnimatePresence>
