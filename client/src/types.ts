@@ -15,6 +15,8 @@ export interface Product {
     memberSince?: string;
     faq?: { question: string; answer?: string }[];
     interestedUserIds?: string[];
+    sellerPhone?: string;
+    sellerEmail?: string;
 }
 
 export interface Category {

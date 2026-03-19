@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, User as UserIcon, Heart, MessageCircle, PlusSquare, LogOut } from 'lucide-react';
 import bitwinLogo from '../assets/Bitwin_logo_final.png';
 import { useAuth } from '../hooks/useAuth';
+import NewProductModal from './NewProductModal';
 
 interface HeaderProps {
     onSearch: (query: string) => void;
@@ -20,6 +21,7 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
     // ... rest of the component state ...
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -145,11 +147,19 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
                     <button className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors">
                         <MessageCircle className="w-6 h-6" />
                     </button>
-                    <button className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors">
+                    <button
+                        className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"
+                        onClick={() => user ? setIsProductModalOpen(true) : onLoginClick()}
+                    >
                         <PlusSquare className="w-6 h-6" />
                     </button>
                 </div>
             </div>
+
+            <NewProductModal
+                isOpen={isProductModalOpen}
+                onClose={() => setIsProductModalOpen(false)}
+            />
         </header>
     );
 }

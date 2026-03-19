@@ -193,6 +193,7 @@ function App() {
         product={selectedProduct}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onLoginClick={() => setIsAuthModalOpen(true)}
         onInterestChange={handleInterestChange}
       />
 

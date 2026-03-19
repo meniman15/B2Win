@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
-import { authenticateUser, registerUser, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory } from './origami.js';
+import { authenticateUser, registerUser, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct } from './origami.js';
 
 dotenv.config();
 
@@ -11,7 +11,8 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 app.get('/api/products', async (req, res) => {
     try {
@@ -55,6 +56,17 @@ app.get('/api/categories', async (req, res) => {
         console.error('Fetch categories error:', error);
         // Fallback to mock data if Origami fails, so the UI doesn't break
         res.json(categories);
+    }
+});
+
+app.get('/api/categories/:categoryId/subcategories', async (req, res) => {
+    try {
+        const { categoryId } = req.params;
+        const subCategories = await getSubCategories(categoryId);
+        res.json(subCategories);
+    } catch (error: any) {
+        console.error('Fetch sub-categories error:', error);
+        res.json([]);
     }
 });
 
@@ -114,6 +126,22 @@ app.post('/api/interest', async (req, res) => {
     } catch (error: any) {
         console.error('Interest submission error:', error);
         res.status(500).json({ error: error.message || 'Internal server error during interest submission' });
+    }
+});
+
+app.post('/api/products', async (req, res) => {
+    const { productData, userData } = req.body;
+
+    if (!productData || !userData) {
+        return res.status(400).json({ error: 'Product data and user data are required' });
+    }
+
+    try {
+        const result = await createProduct(productData, userData);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Create product error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error during product creation' });
     }
 });
 

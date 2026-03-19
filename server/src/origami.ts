@@ -5,6 +5,19 @@ const ORIGAMI_ACCOUNT_NAME = process.env.ORIGAMI_ACCOUNT_NAME;
 const ORIGAMI_USERNAME = process.env.ORIGAMI_USERNAME;
 const ORIGAMI_SECRET = process.env.ORIGAMI_SECRET;
 
+function formatOrigamiError(error: any) {
+    if (typeof error === 'string') return error;
+    if (error && typeof error === 'object') {
+        const type = error.type || error.error || '';
+        const message = error.message || error.error_message || '';
+        if (type && message) return `${type}: ${message}`;
+        if (type) return type;
+        if (message) return message;
+        return JSON.stringify(error);
+    }
+    return 'Unknown Origami Error';
+}
+
 export async function authenticateUser(fullName: string, phone: string) {
     if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
         throw new Error('Origami configuration is missing in .env');
@@ -133,7 +146,9 @@ export async function authenticateUser(fullName: string, phone: string) {
                 email: email,
                 phone: telephone,
                 organization: typeof orgValue === 'object' ? orgValue.text : (orgValue || 'B2Win'),
+                organizationId: typeof orgValue === 'object' ? orgValue.instance_id : null,
                 subOrganization: typeof subOrgValue === 'object' ? subOrgValue.text : subOrgValue,
+                subOrganizationId: typeof subOrgValue === 'object' ? subOrgValue.instance_id : null,
                 status: getDetailsFieldValue('status') || 'Active',
                 origamiFields: origamiFields,
                 interestList: interestList
@@ -273,15 +288,9 @@ export async function submitInterest(userData: any, transactionId: string, quant
         const data = await response.json();
 
         if (!response.ok || data.error) {
-            const errorMsg = data.error_message || data.error || 'Unknown error';
-            if (response.status === 200) {
-                const errorMessage = errorMsg.message ? `${errorMsg.type} - ${errorMsg.message}` : errorMsg.type;
-                console.error('Origami Interest Submission Failed:', errorMessage);
-                throw new Error(`Origami API error: ${errorMessage}`);
-            } else {
-                console.error('Origami Interest Submission Failed:', response.status, errorMsg, data);
-                throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
-            }
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Interest Submission Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
         }
 
         console.log('Origami Interest Submission Success:', JSON.stringify(data));
@@ -510,6 +519,8 @@ export function mapOrigamiProduct(raw: any) {
     const locationObj = getFieldValue(groups, 'g_451', 'fld_3099');
 
     const sellerName = getFieldValue(groups, 'g_452', 'fld_3034');
+    const sellerPhone = getFieldValue(groups, 'g_452', 'fld_3035');
+    const sellerEmail = getFieldValue(groups, 'g_452', 'fld_3036');
     const logisticsComment = getFieldValue(groups, 'g_455', 'fld_3057');
     const imageObj = getFieldValue(groups, 'g_456', 'fld_3030');
 
@@ -548,6 +559,8 @@ export function mapOrigamiProduct(raw: any) {
         interestedUserIds: interestedUserIds,
         memberSince: instance.insertTimestamp ? new Date(instance.insertTimestamp).getFullYear().toString() : '2024',
         faq: faq,
+        sellerPhone: sellerPhone ? String(sellerPhone) : '',
+        sellerEmail: sellerEmail ? String(sellerEmail) : '',
     };
 
     console.log('Mapped Product:', result.id, result.name, result.category, result.price);
@@ -592,6 +605,223 @@ export async function getCategories() {
         return data.data || [];
     } catch (error) {
         console.error('Error fetching categories from Origami:', error);
+        throw error;
+    }
+}
+
+export async function getSubCategories(categoryId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    // Fetch ALL sub-categories (no filter), then filter in code
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_173",
+        type: 2,
+        limit: [0, 100],
+        with_archive: 0
+    };
+
+    try {
+        console.log(`Fetching all sub-categories from Origami for category ${categoryId}`);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Fetch Sub-Categories Failed:', response.status, errorMsg);
+            return [];
+        }
+
+        const allItems = data.data || [];
+        if (allItems.length === 0) return [];
+
+        // Log the first item's fields for debugging
+        const sampleFields = allItems[0]?.instance_data?.field_groups?.[0]?.fields_data?.[0] || [];
+        console.log('Sub-Category sample fields:', JSON.stringify(sampleFields.map((f: any) => ({
+            name: f.field_name,
+            dname: f.field_data_name,
+            val: f.value,
+            valType: typeof f.value === 'object' ? 'object' : typeof f.value
+        })), null, 2));
+
+        // Filter and map: find the category-link field (object with instance_id) and name field (string value)
+        const results: { id: string; name: string }[] = [];
+
+        for (const item of allItems) {
+            const fields = item?.instance_data?.field_groups?.[0]?.fields_data?.[0] || [];
+
+            let nameValue = '';
+            let linkedCategoryId = '';
+
+            for (const field of fields) {
+                const val = field.value;
+                // If the value is an object with instance_id, it's a link to another entity (category)
+                if (val && typeof val === 'object' && val.instance_id) {
+                    linkedCategoryId = val.instance_id;
+                }
+                // If it's a plain string and not empty, it's likely the name
+                else if (typeof val === 'string' && val.trim() && !nameValue) {
+                    nameValue = val;
+                }
+            }
+
+            if (linkedCategoryId === categoryId && nameValue) {
+                results.push({ id: item.instance_data._id, name: nameValue });
+            }
+        }
+
+        console.log(`Found ${results.length} sub-categories for category ${categoryId}:`, results);
+        return results;
+    } catch (error) {
+        console.error('Error fetching sub-categories from Origami:', error);
+        return [];
+    }
+}
+
+/**
+ * Helper to extract an Origami instance_id from the user's origamiFields array
+ */
+function getOrigamiId(userData: any, fieldId: string): string | null {
+    if (!userData || !userData.origamiFields || !Array.isArray(userData.origamiFields)) return null;
+    const field = userData.origamiFields.find((f: any) => f.field_id === fieldId);
+    if (!field || !field.default_value) return null;
+
+    // If it's already an object with instance_id
+    if (typeof field.default_value === 'object' && field.default_value.instance_id) {
+        return field.default_value.instance_id;
+    }
+
+    // Fallback: if it's a string that looks like an ID
+    if (typeof field.default_value === 'string' && field.default_value.length > 10) {
+        return field.default_value;
+    }
+
+    return null;
+}
+
+export async function createProduct(productData: any, userData: any) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/create_instance/format/json`;
+
+    // Try to get location ID if it's text
+    let locationId = productData.location;
+    if (productData.location === 'גלילות') {
+        locationId = '69a83fb17c629a175d08646a';
+    }
+
+    // Extract IDs from userData if they aren't at the top level
+    const subOrgId = userData.subOrganizationId || getOrigamiId(userData, '3129');
+    const orgId = userData.organizationId || getOrigamiId(userData, '3128');
+    const userId = userData.id;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_175",
+        ov: "2",
+        form_data: [
+            {
+                group_data_name: "g_451",
+                data: [
+                    {
+                        fld_3027: { instance_id: productData.categoryId },
+                        fld_3028: productData.subCategoryId ? { instance_id: productData.subCategoryId } : "",
+                        fld_3029: productData.type,
+                        fld_3031: String(productData.price || 0),
+                        fld_3032: productData.quantity ? String(productData.quantity) : "",
+                        fld_3033: productData.condition,
+                        fld_3038: "ממתין לאישור",
+                        fld_3099: { instance_id: locationId },
+                        fld_3142: productData.name,
+                        fld_3143: productData.description,
+                    }
+                ]
+            },
+            {
+                group_data_name: "g_456",
+                data: [
+                    {
+                        fld_3030: productData.image
+                    }
+                ]
+            },
+            {
+                group_data_name: "g_452",
+                data: [
+                    {
+                        fld_3034: `${userData.firstName} ${userData.lastName}`,
+                        fld_3049: "",
+                        fld_3035: userData.phone || "",
+                        fld_3130: userId ? { instance_id: userId, text: `${userData.firstName} ${userData.lastName}` } : "",
+                        fld_3036: userData.email || "",
+                        fld_3037: subOrgId ? { instance_id: subOrgId, text: userData.subOrganization } : ""
+                    }
+                ]
+            },
+            {
+                group_data_name: "g_454",
+                data: [
+                    {
+                        fld_3042: "",
+                        fld_3044: "",
+                        fld_3076: "",
+                        fld_3077: "",
+                        fld_3078: "",
+                        fld_3079: "",
+                        fld_3132: ""
+                    }
+                ]
+            },
+            {
+                group_data_name: "g_455",
+                data: [
+                    {
+                        fld_3056: "",
+                        fld_3057: ""
+                    }
+                ]
+            }
+        ]
+    };
+
+    try {
+        console.log('Creating product in Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Create Product Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        return data.results || data;
+    } catch (error) {
+        console.error('Error creating product in Origami:', error);
         throw error;
     }
 }
