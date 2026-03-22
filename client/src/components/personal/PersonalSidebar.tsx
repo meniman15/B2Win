@@ -60,17 +60,26 @@ export default function PersonalSidebar({ user, activeTab, onSelectTab }: Person
       <div className="mt-6 px-4 pb-8">
         <h3 className="text-2xl font-black text-black mb-4 px-4 text-right">תמיכה</h3>
         <nav className="space-y-2">
-          <button className="w-full flex items-center gap-4 px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right">
-            <HelpCircle className="w-7 h-7 text-[#418EAB]" strokeWidth={1.5} />
-            <span className="text-xl text-gray-900">צור קשר</span>
+          <button className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right opacity-60 cursor-not-allowed">
+            <div className="flex items-center gap-4">
+              <HelpCircle className="w-7 h-7 text-[#418EAB]" strokeWidth={1.5} />
+              <span className="text-xl text-gray-900">צור קשר</span>
+            </div>
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">בבנייה</span>
           </button>
-          <button className="w-full flex items-center gap-4 px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right">
-            <FileText className="w-7 h-7 text-[#418EAB]" strokeWidth={1.5} />
-            <span className="text-xl text-gray-900">תקנון</span>
+          <button className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right opacity-60 cursor-not-allowed">
+            <div className="flex items-center gap-4">
+              <FileText className="w-7 h-7 text-[#418EAB]" strokeWidth={1.5} />
+              <span className="text-xl text-gray-900">תקנון</span>
+            </div>
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">בבנייה</span>
           </button>
-          <button className="w-full flex items-center gap-4 px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right">
-            <ShieldCheck className="w-7 h-7 text-[#418EAB]" strokeWidth={1.5} />
-            <span className="text-xl text-gray-900">מדיניות פרטיות</span>
+          <button className="w-full flex items-center justify-between px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right opacity-60 cursor-not-allowed">
+            <div className="flex items-center gap-4">
+              <ShieldCheck className="w-7 h-7 text-[#418EAB]" strokeWidth={1.5} />
+              <span className="text-xl text-gray-900">מדיניות פרטיות</span>
+            </div>
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">בבנייה</span>
           </button>
           <button 
             className="w-full flex items-center gap-4 px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors mt-6 text-right"
