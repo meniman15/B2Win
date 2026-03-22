@@ -4,11 +4,16 @@ import CategoryNav from './components/CategoryNav';
 import ProductCard from './components/ProductCard';
 import ProductModal from './components/ProductModal';
 import AuthModal from './components/AuthModal';
+import PersonalPage from './components/personal/PersonalPage';
+import { useAuth } from './hooks/useAuth';
 import './index.css';
 
 import type { Product, Category } from './types';
 
 function App() {
+  const { user } = useAuth();
+  const [currentPage, setCurrentPage] = useState<'home' | 'profile'>('home');
+  const [profileTab, setProfileTab] = useState<'profile' | 'interested' | 'posted' | 'queue'>('profile');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -80,12 +85,28 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans" dir="rtl">
       <Header
-        onSearch={setSearchQuery}
+        onSearch={(q) => {
+          setSearchQuery(q);
+          if (currentPage !== 'home') setCurrentPage('home');
+        }}
         onLoginClick={() => setIsAuthModalOpen(true)}
+        onProfileClick={(tab) => {
+          if (!user) {
+            setIsAuthModalOpen(true);
+          } else {
+            if (tab) setProfileTab(tab as any);
+            setCurrentPage('profile');
+          }
+        }}
+        onHomeClick={() => setCurrentPage('home')}
       />
 
       <main className={`flex-grow transition-all duration-300 ${isModalOpen || isAuthModalOpen ? 'blur-md pointer-events-none' : ''}`}>
-        <CategoryNav
+        {currentPage === 'profile' && user ? (
+          <PersonalPage user={user} initialTab={profileTab} onProductClick={handleProductClick} />
+        ) : (
+          <>
+            <CategoryNav
           categories={categories}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
@@ -187,6 +208,8 @@ function App() {
             )}
           </div>
         </div>
+        </>
+        )}
       </main>
 
       <ProductModal

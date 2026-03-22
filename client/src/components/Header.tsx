@@ -7,6 +7,8 @@ import NewProductModal from './NewProductModal';
 interface HeaderProps {
     onSearch: (query: string) => void;
     onLoginClick: () => void;
+    onProfileClick?: (tab?: string) => void;
+    onHomeClick?: () => void;
 }
 
 interface Suggestion {
@@ -15,7 +17,7 @@ interface Suggestion {
     category: string;
 }
 
-export default function Header({ onSearch, onLoginClick }: HeaderProps) {
+export default function Header({ onSearch, onLoginClick, onProfileClick, onHomeClick }: HeaderProps) {
     const { user, logout } = useAuth();
     const [query, setQuery] = useState('');
     // ... rest of the component state ...
@@ -70,7 +72,10 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
                         src={bitwinLogo}
                         alt="BitWin Logo"
                         className="h-16 w-auto object-contain cursor-pointer"
-                        onClick={() => window.location.href = '/'}
+                        onClick={() => {
+                            if (onHomeClick) onHomeClick();
+                            else window.location.href = '/';
+                        }}
                     />
                 </div>
 
@@ -125,9 +130,12 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
                             >
                                 <LogOut className="w-5 h-5" />
                             </button>
-                            <div className="w-10 h-10 rounded-full bg-[#418EAB] text-white flex items-center justify-center font-bold shadow-sm">
+                            <button 
+                                className="w-10 h-10 rounded-full bg-[#418EAB] text-white flex items-center justify-center font-bold shadow-sm hover:ring-2 hover:ring-[#00AEEF] transition-all cursor-pointer"
+                                onClick={() => onProfileClick?.('profile')}
+                            >
                                 {(user.firstName || '?').charAt(0)}
-                            </div>
+                            </button>
                         </div>
                     ) : (
                         <button
@@ -141,7 +149,16 @@ export default function Header({ onSearch, onLoginClick }: HeaderProps) {
                             </span>
                         </button>
                     )}
-                    <button className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors">
+                    <button 
+                        className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"
+                        onClick={() => {
+                            if (user && onProfileClick) {
+                                onProfileClick('interested');
+                            } else {
+                                onLoginClick();
+                            }
+                        }}
+                    >
                         <Heart className="w-6 h-6" />
                     </button>
                     <button className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors">
