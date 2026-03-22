@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Heart } from 'lucide-react';
 import { getTagColor } from '../utils/theme';
 import { useAuth } from '../hooks/useAuth';
@@ -7,11 +8,24 @@ import type { Product } from '../types';
 interface ProductCardProps {
     product: Product;
     onClick: (product: Product) => void;
+    isLikedInit?: boolean;
+    onLikeToggle?: (productId: string, isLiked: boolean) => void;
 }
 
-export default function ProductCard({ product, onClick }: ProductCardProps) {
-    const { user } = useAuth();
+export default function ProductCard({ product, onClick, isLikedInit, onLikeToggle }: ProductCardProps) {
+    const auth = useAuth() as any;
+    const { user, updateUser } = auth;
     const isUserInterested = user && product.interestedUserIds?.includes(user.id || '');
+    
+    const [isLiked, setIsLiked] = useState(false);
+
+    useEffect(() => {
+        if (isLikedInit !== undefined) {
+            setIsLiked(isLikedInit);
+        } else if (user && (user as any).likedList?.includes(product.id)) {
+            setIsLiked(true);
+        }
+    }, [isLikedInit, user, product.id]);
 
     const getTagText = (status: string) => {
         if (isUserInterested) return 'הבעתי עניין';
@@ -39,10 +53,41 @@ export default function ProductCard({ product, onClick }: ProductCardProps) {
 
                 {/* TODO: save like selection and present as liked */}
                 <button
-                    onClick={(e) => { e.stopPropagation(); }}
-                    className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:text-red-500 transition-colors border border-white/20"
+                    onClick={async (e) => { 
+                        e.stopPropagation(); 
+                        if (!user) return;
+                        const newState = !isLiked;
+                        setIsLiked(newState);
+                        try {
+                            await fetch('http://localhost:5001/api/products/like', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ fld_3140: user.id, fld_3139: product.id, fld_3138: newState })
+                            });
+                            
+                            if (user && (user as any).likedList && updateUser) {
+                                let newLikedList = [...(user as any).likedList];
+                                if (newState) {
+                                    if (!newLikedList.includes(product.id)) {
+                                        newLikedList.push(product.id);
+                                    }
+                                } else {
+                                    newLikedList = newLikedList.filter((id: string) => id !== product.id);
+                                }
+                                updateUser({ likedList: newLikedList });
+                            }
+
+                            if (onLikeToggle) {
+                                onLikeToggle(product.id, newState);
+                            }
+                        } catch (err) {
+                            console.error('Failed to toggle like', err);
+                            setIsLiked(!newState);
+                        }
+                    }}
+                    className={`absolute top-4 left-4 backdrop-blur-md p-2 rounded-full transition-colors border border-white/20 ${isLiked ? 'bg-white/90 text-red-500' : 'bg-white/20 text-white hover:text-red-500'}`}
                 >
-                    <Heart className="w-6 h-6 stroke-[2.5px]" />
+                    <Heart className="w-6 h-6 stroke-[2.5px]" fill={isLiked ? 'currentColor' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
                 </button>
 
                 <div className="absolute bottom-0 left-0 bg-[#f9fafb] pt-2 pr-2 rounded-tr-[1.5rem]">
