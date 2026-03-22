@@ -139,6 +139,46 @@ export async function authenticateUser(fullName: string, phone: string) {
                 // Non-blocking, continue with empty interest list
             }
 
+            // Fetch user's active likes
+            const likedList: string[] = [];
+            try {
+                const likedUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+                const likedBody = {
+                    username: ORIGAMI_USERNAME,
+                    api_secret: ORIGAMI_SECRET,
+                    entity_data_name: "e_179",
+                    return_groups: ["g_469"],
+                    type: 2,
+                    with_archive: 0,
+                    filter: [
+                        ["fld_3140.instance_id", "=", userId],
+                        ["fld_3138", "=", "1"]
+                    ]
+                };
+
+                const likedResponse = await fetch(likedUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(likedBody)
+                });
+
+                if (likedResponse.ok) {
+                    const likedData = await likedResponse.json();
+                    const likedItems = likedData.data || [];
+                    likedItems.forEach((item: any) => {
+                        const groups = item.instance_data.field_groups;
+                        const transIdValue = getFieldValue(groups, 'g_469', 'fld_3139');
+                        const transId = transIdValue?.instance_id || transIdValue;
+                        if (transId && !likedList.includes(transId)) {
+                            likedList.push(transId);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching user likes during auth:', err);
+                // Non-blocking, continue with empty liked list
+            }
+
             return {
                 id: instance._id,
                 firstName: userFirstName,
@@ -151,7 +191,8 @@ export async function authenticateUser(fullName: string, phone: string) {
                 subOrganizationId: typeof subOrgValue === 'object' ? subOrgValue.instance_id : null,
                 status: getDetailsFieldValue('status') || 'Active',
                 origamiFields: origamiFields,
-                interestList: interestList
+                interestList: interestList,
+                likedList: likedList
             };
         }
 
@@ -605,6 +646,254 @@ export async function getCategories() {
         return data.data || [];
     } catch (error) {
         console.error('Error fetching categories from Origami:', error);
+        throw error;
+    }
+}
+
+export async function getProductsBySeller(userId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_175",
+        return_groups: ["g_451", "g_452", "g_453", "g_455", "g_456"],
+        filter: [
+            ["fld_3130.instance_id", "=", userId]
+        ]
+    };
+
+    try {
+        console.log('Fetching posted products from Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            console.error('Origami Fetch Posted Products Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        let instances = data.data || [];
+        return instances;
+    } catch (error) {
+        console.error('Error fetching posted products from Origami:', error);
+        throw error;
+    }
+}
+
+export async function getInterestedProductsByUserId(userId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    // 1. Fetch interests for the user
+    const interestsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+    const interestsBody = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "interests",
+        return_groups: ["transaction_details"],
+        type: 2,
+        with_archive: 0,
+        filter: [
+            ["fld_3089", "!=", "true"],
+            ["interested_details.interested_id", "=", userId]
+        ]
+    };
+
+    try {
+        console.log('Fetching user interests from Origami:', interestsUrl);
+        const interestsResponse = await fetch(interestsUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(interestsBody)
+        });
+
+        const interestsData = await interestsResponse.json();
+
+        if (!interestsResponse.ok || interestsData.error) {
+            console.error('Failed to fetch user interests:', interestsData);
+            return [];
+        }
+
+        const interestsItems = interestsData.data || [];
+        const productIds: string[] = [];
+
+        interestsItems.forEach((item: any) => {
+            const groups = item.instance_data.field_groups;
+            const transIdObj = getFieldValue(groups, 'transaction_details', 'transaction_id');
+            const transId = (transIdObj && typeof transIdObj === 'object') ? transIdObj.instance_id : transIdObj;
+            if (transId && !productIds.includes(transId)) {
+                productIds.push(transId);
+            }
+        });
+
+        if (productIds.length === 0) {
+            return [];
+        }
+
+        // 2. Fetch the corresponding products
+        const productsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+        const productsBody = {
+            username: ORIGAMI_USERNAME,
+            api_secret: ORIGAMI_SECRET,
+            entity_data_name: "e_175",
+            return_groups: ["g_451", "g_452", "g_453", "g_455", "g_456"],
+            filter: [
+                ["_id", "in", productIds]
+            ]
+        };
+
+        const productsResponse = await fetch(productsUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(productsBody)
+        });
+
+        const productsData = await productsResponse.json();
+
+        // If _id filtering fails for some reason or returns error, fallback to empty to avoid crashing
+        if (!productsResponse.ok || productsData.error) {
+            console.error('Origami Fetch Interested Products Failed:', productsData);
+            return [];
+        }
+
+        let instances = productsData.data || [];
+        return instances;
+    } catch (error) {
+        console.error('Error fetching interested products from Origami:', error);
+        throw error;
+    }
+}
+
+export async function toggleProductLike(fld_3140: string, fld_3139: string, fld_3138: boolean) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const searchUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+    const searchBody = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_179",
+        return_groups: ["g_469"],
+        with_archive: 0,
+        filter: [
+            ["fld_3140.instance_id", "=", fld_3140],
+            ["fld_3139.instance_id", "=", fld_3139]
+        ]
+    };
+
+    try {
+        const searchRes = await fetch(searchUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(searchBody) });
+        const searchData = await searchRes.json();
+        const existingInstances = searchData.data || [];
+
+        if (existingInstances.length > 0) {
+            const updateUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+            const updatePromises = existingInstances.map((inst: any) => {
+                const updateBody = {
+                    username: ORIGAMI_USERNAME,
+                    api_secret: ORIGAMI_SECRET,
+                    entity_data_name: "e_179",
+                    filter: [["_id", "=", inst.instance_data._id]],
+                    field: [["fld_3138", fld_3138 ? "1" : "0"]]
+                };
+                return fetch(updateUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(updateBody) });
+            });
+            await Promise.all(updatePromises);
+            return { success: true, updatedCount: existingInstances.length };
+        } else {
+            const createUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/create_instance/format/json`;
+            const createBody = {
+                username: ORIGAMI_USERNAME,
+                api_secret: ORIGAMI_SECRET,
+                entity_data_name: "e_179",
+                form_data: [{
+                    group_data_name: "g_469",
+                    data: [{ fld_3140: { instance_id: fld_3140 }, fld_3139: { instance_id: fld_3139 }, fld_3138: fld_3138 ? "1" : "0" }]
+                }]
+            };
+            const res = await fetch(createUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(createBody) });
+            return await res.json();
+        }
+    } catch (error) {
+        console.error('Error toggling product like in Origami:', error);
+        throw error;
+    }
+}
+
+export async function getLikedProductsByUserId(fld_3140: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const searchUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+    const searchBody = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_179",
+        return_groups: ["g_469"],
+        with_archive: 0,
+        filter: [
+            ["fld_3140.instance_id", "=", fld_3140],
+            ["fld_3138", "=", "1"]
+        ]
+    };
+
+    try {
+        console.log('Sending search for liked products body:', JSON.stringify(searchBody));
+        const searchRes = await fetch(searchUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(searchBody) });
+        const searchData = await searchRes.json();
+        console.log('Liked products search response:', JSON.stringify(searchData).substring(0, 300));
+        const items = searchData.data || [];
+        const likedIds: string[] = [];
+
+        items.forEach((item: any) => {
+            const groups = item.instance_data.field_groups || [];
+            if (groups.length > 0) {
+                const targetField = getFieldValue(groups, 'g_469', 'fld_3139');
+                if (targetField) {
+                    const id = typeof targetField === 'object' ? targetField.instance_id : targetField;
+                    if (id && !likedIds.includes(id)) likedIds.push(id);
+                }
+            }
+        });
+
+        if (likedIds.length === 0) return [];
+
+        const productsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+        const productsBody = {
+            username: ORIGAMI_USERNAME,
+            api_secret: ORIGAMI_SECRET,
+            entity_data_name: "e_175",
+            return_groups: ["g_451", "g_452", "g_453", "g_455", "g_456"],
+            filter: [
+                ["_id", "in", likedIds]
+            ]
+        };
+
+        const productsResponse = await fetch(productsUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(productsBody) });
+        const productsData = await productsResponse.json();
+
+        if (!productsResponse.ok || productsData.error) return [];
+
+        return productsData.data || [];
+    } catch (error) {
+        console.error('Error fetching liked products:', error);
         throw error;
     }
 }

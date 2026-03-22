@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
-import { authenticateUser, registerUser, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct } from './origami.js';
+import { authenticateUser, registerUser, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId } from './origami.js';
 
 dotenv.config();
 
@@ -38,6 +38,70 @@ app.get('/api/products', async (req, res) => {
     } catch (error: any) {
         console.error('Fetch products error:', error);
         res.status(500).json({ error: error.message || 'Internal server error fetching products' });
+    }
+});
+
+app.post('/api/products/posted', async (req, res) => {
+    try {
+        const userId = req.body.userId || req.body.id;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        const rawProducts = await getProductsBySeller(userId);
+        const mappedProducts = rawProducts.map(mapOrigamiProduct);
+        res.json(mappedProducts);
+    } catch (error: any) {
+        console.error('Fetch posted products error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching posted products' });
+    }
+});
+
+app.post('/api/products/interested', async (req, res) => {
+    try {
+        const userId = req.body.userId || req.body.id;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        const rawProducts = await getInterestedProductsByUserId(userId);
+        const mappedProducts = rawProducts.map(mapOrigamiProduct);
+        res.json(mappedProducts);
+    } catch (error: any) {
+        console.error('Fetch interested products error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching interested products' });
+    }
+});
+
+app.post('/api/products/like', async (req, res) => {
+    try {
+        const { userId, productId, isLiked, fld_3138, fld_3139, fld_3140 } = req.body;
+        const targetUserId = fld_3140 || userId;
+        const targetProductId = fld_3139 || productId;
+        
+        if (!targetUserId || !targetProductId) {
+            return res.status(400).json({ error: 'User ID and Product ID are required' });
+        }
+        // Also support isLiked if client still sends it momentarily
+        const targetState = fld_3138 !== undefined ? fld_3138 : isLiked;
+        const result = await toggleProductLike(targetUserId, targetProductId, targetState);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Toggle like error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error toggling product like' });
+    }
+});
+
+app.post('/api/products/loved', async (req, res) => {
+    try {
+        const targetUserId = req.body.fld_3140 || req.body.userId || req.body.id;
+        if (!targetUserId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        const rawProducts = await getLikedProductsByUserId(targetUserId);
+        const mappedProducts = rawProducts.map(mapOrigamiProduct);
+        res.json(mappedProducts);
+    } catch (error: any) {
+        console.error('Fetch loved products error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching loved products' });
     }
 });
 
