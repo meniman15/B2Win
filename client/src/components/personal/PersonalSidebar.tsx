@@ -9,7 +9,7 @@ interface PersonalSidebarProps {
 
 export default function PersonalSidebar({ user, activeTab, onSelectTab }: PersonalSidebarProps) {
   const { logout } = useAuth();
-  
+
   const navItems = [
     { id: 'profile', label: 'פרופיל אישי', icon: User },
     { id: 'interested', label: 'מוצרים שהתעניינת בהם', icon: Heart },
@@ -21,14 +21,15 @@ export default function PersonalSidebar({ user, activeTab, onSelectTab }: Person
     <aside className="w-72 bg-[#B5D5DF] rounded-2xl overflow-hidden flex-shrink-0" dir="rtl">
       {/* User Info Header */}
       <div className="p-8 text-center border-b border-[#92C4D6]">
-        <div className="flex items-center justify-between mb-4">
-          <div className="w-12 h-12 rounded-full bg-[#1C4E80] text-white flex items-center justify-center font-bold text-xl mr-4">
+        <div className="flex items-center justify-between">
+          <div className="w-12 h-12 rounded-full bg-[#1C4E80] text-white flex items-center justify-center font-bold text-xl ml-4">
             {(user?.firstName || '?').charAt(0)}
           </div>
           <div className="flex-1 text-right">
             <h2 className="text-xl font-black text-gray-900">{user?.firstName || 'משתמש'} {user?.lastName || ''}</h2>
             <p className="text-sm text-gray-700 font-medium">{[user?.organization, user?.subOrganization].filter(Boolean).join(' - ') || 'יחידה לא ידועה'}</p>
           </div>
+
         </div>
       </div>
 
@@ -41,12 +42,11 @@ export default function PersonalSidebar({ user, activeTab, onSelectTab }: Person
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              className={`w-full flex items-center gap-4 px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right relative ${
-                isActive ? 'font-bold' : 'font-normal'
-              }`}
+              className={`w-full flex items-center gap-4 px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors text-right relative ${isActive ? 'font-bold' : 'font-normal'
+                }`}
             >
-              <Icon 
-                className={`w-7 h-7 text-[#418EAB] transition-all`} 
+              <Icon
+                className={`w-7 h-7 text-[#418EAB] transition-all`}
                 strokeWidth={1.5}
                 fill={isActive ? 'currentColor' : 'none'}
               />
@@ -81,7 +81,7 @@ export default function PersonalSidebar({ user, activeTab, onSelectTab }: Person
             </div>
             <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-bold">בבנייה</span>
           </button>
-          <button 
+          <button
             className="w-full flex items-center gap-4 px-4 py-2 hover:bg-[#92C4D6]/30 transition-colors mt-6 text-right"
             onClick={logout}
           >
