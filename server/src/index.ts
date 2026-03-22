@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories, products } from './data.js';
-import { authenticateUser, registerUser, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId } from './origami.js';
+import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId } from './origami.js';
 
 dotenv.config();
 
@@ -13,6 +13,20 @@ const PORT = process.env.PORT || 5001;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+app.post('/api/user/update', async (req, res) => {
+    try {
+        const { userId, data } = req.body;
+        if (!userId || !data) {
+            return res.status(400).json({ error: 'User ID and data are required' });
+        }
+        const result = await updateUserProfile(userId, data);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Update user profile error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error updating user profile' });
+    }
+});
 
 app.get('/api/products', async (req, res) => {
     try {
@@ -136,6 +150,27 @@ app.get('/api/categories/:categoryId/subcategories', async (req, res) => {
 
 app.get('/api/hello', (req, res) => {
     res.json({ message: 'Hello from the Be2Win Server!' });
+});
+
+app.get('/api/organizations', async (req, res) => {
+    try {
+        const orgs = await getOrganizations();
+        res.json(orgs);
+    } catch (error: any) {
+        console.error('Fetch organizations error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching organizations' });
+    }
+});
+
+app.get('/api/organizations/:orgId/suborganizations', async (req, res) => {
+    try {
+        const { orgId } = req.params;
+        const subOrgs = await getSubOrganizations(orgId);
+        res.json(subOrgs);
+    } catch (error: any) {
+        console.error('Fetch sub-organizations error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching sub-organizations' });
+    }
 });
 
 app.get('/api/search', async (req, res) => {

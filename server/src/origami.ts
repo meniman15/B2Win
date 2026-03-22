@@ -280,6 +280,67 @@ export async function registerUser(userData: any) {
         throw error;
     }
 }
+
+export async function updateUserProfile(userId: string, data: any) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+
+    const fieldsToUpdate = [];
+    if (data.firstName !== undefined) fieldsToUpdate.push(["first_name", data.firstName]);
+    if (data.lastName !== undefined) fieldsToUpdate.push(["last_name", data.lastName]);
+    if (data.email !== undefined) fieldsToUpdate.push(["email", data.email]);
+    if (data.phone !== undefined) fieldsToUpdate.push(["telephone", data.phone]);
+    
+    if (data.organizationId) {
+        fieldsToUpdate.push(["organization", { instance_id: data.organizationId, text: data.organization }]);
+    } else if (data.organization !== undefined) {
+        fieldsToUpdate.push(["organization", data.organization]);
+    }
+
+    if (data.subOrganizationId) {
+        fieldsToUpdate.push(["subOrganization", { instance_id: data.subOrganizationId, text: data.subOrganization }]);
+    } else if (data.subOrganization !== undefined) {
+        fieldsToUpdate.push(["subOrganization", data.subOrganization]);
+    }
+
+    if (fieldsToUpdate.length === 0) return { success: true };
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "users",
+        filter: [["_id", "=", userId]],
+        field: fieldsToUpdate
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const resData = await response.json();
+
+        if (!response.ok || resData.error) {
+            const errorMsg = resData.error_message || resData.error || 'Unknown error';
+            console.error('Origami Update User Failed:', response.status, errorMsg, resData);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        return { success: true, updated: true };
+    } catch (error) {
+        console.error('Error updating user profile with Origami:', error);
+        throw error;
+    }
+}
+
 export async function submitInterest(userData: any, transactionId: string, quantity: number) {
     if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
         throw new Error('Origami configuration is missing in .env');
@@ -1112,6 +1173,89 @@ export async function createProduct(productData: any, userData: any) {
     } catch (error) {
         console.error('Error creating product in Origami:', error);
         throw error;
+    }
+}
+
+export async function getOrganizations() {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_177",
+        return_groups: ["g_460"],
+        type: 2,
+        with_archive: 0
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) return [];
+
+        return (data.data || []).map((item: any) => {
+            const fields = item.instance_data.field_groups[0].fields_data[0];
+            return {
+                id: fields.find((f: any) => f.field_data_name === 'fld_3083')?.value || item.instance_data._id,
+                instance_id: item.instance_data._id,
+                name: fields.find((f: any) => f.field_data_name === 'fld_3082')?.value || 'Unnamed Org'
+            };
+        });
+    } catch (error) {
+        console.error('Error fetching organizations:', error);
+        return [];
+    }
+}
+
+export async function getSubOrganizations(orgId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_174",
+        return_groups: ["g_450"],
+        type: 2,
+        with_archive: 0,
+        filter: [
+            ["fld_3084.instance_id", "=", orgId]
+        ]
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) return [];
+
+        return (data.data || []).map((item: any) => {
+            const fields = item.instance_data.field_groups[0].fields_data[0];
+            return {
+                id: fields.find((f: any) => f.field_data_name === 'fld_3050')?.value || item.instance_data._id,
+                instance_id: item.instance_data._id,
+                name: fields.find((f: any) => f.field_data_name === 'fld_3026')?.value || 'Unnamed Sub-Org'
+            };
+        });
+    } catch (error) {
+        console.error('Error fetching sub-organizations:', error);
+        return [];
     }
 }
 
