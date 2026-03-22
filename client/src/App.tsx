@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Header from './components/Header';
 import CategoryNav from './components/CategoryNav';
+import { API_URL } from './config';
 import ProductCard from './components/ProductCard';
 import ProductModal from './components/ProductModal';
 import AuthModal from './components/AuthModal';
@@ -33,7 +34,7 @@ function App() {
 
   useEffect(() => {
     // Fetch categories
-    fetch('http://localhost:5001/api/categories')
+    fetch(`${API_URL}/api/categories`)
       .then(res => res.json())
       .then(data => setCategories(data))
       .catch(err => console.error('Error fetching categories:', err));
@@ -54,7 +55,7 @@ function App() {
 
   useEffect(() => {
     setLoading(true);
-    let url = 'http://localhost:5001/api/products?';
+    let url = `${API_URL}/api/products?`;
     if (selectedCategory) url += `category=${selectedCategory}&`;
     if (searchQuery) url += `q=${encodeURIComponent(searchQuery)}&`;
 
@@ -98,7 +99,11 @@ function App() {
             setCurrentPage('profile');
           }
         }}
-        onHomeClick={() => setCurrentPage('home')}
+        onHomeClick={() => {
+          setCurrentPage('home');
+          setSelectedCategory(null);
+          setSearchQuery('');
+        }}
       />
 
       <main className={`flex-grow transition-all duration-300 ${isModalOpen || isAuthModalOpen ? 'blur-md pointer-events-none' : ''}`}>

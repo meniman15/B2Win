@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Package, AlertCircle } from 'lucide-react';
+import { API_URL } from '../config';
 import { useAuth } from '../hooks/useAuth';
 
 interface Category {
@@ -32,7 +33,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
 
     useEffect(() => {
         if (isOpen) {
-            fetch('http://localhost:5001/api/categories')
+            fetch(`${API_URL}/api/categories`)
                 .then(res => res.json())
                 .then(data => setCategories(data.filter((c: any) => c.id !== 'all')))
                 .catch(err => console.error('Error fetching categories:', err));
@@ -41,7 +42,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
 
     useEffect(() => {
         if (selectedCategory) {
-            fetch(`http://localhost:5001/api/categories/${selectedCategory}/subcategories`)
+            fetch(`${API_URL}/api/categories/${selectedCategory}/subcategories`)
                 .then(res => res.json())
                 .then(data => {
                     setSubCategories(data);
@@ -87,7 +88,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
 
         setIsLoading(true);
         try {
-            const response = await fetch('http://localhost:5001/api/products', {
+            const response = await fetch(`${API_URL}/api/products`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

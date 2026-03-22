@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { API_URL } from '../../config';
 import type { Product } from '../../types';
 import ProductCard from '../ProductCard';
 
@@ -17,7 +18,7 @@ export default function PostedProducts({ user, onProductClick }: PostedProductsP
     
     const fetchPostedProducts = async () => {
       try {
-        const res = await fetch('http://localhost:5001/api/products/posted', {
+        const res = await fetch(`${API_URL}/api/products/posted`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

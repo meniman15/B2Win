@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_URL } from '../config';
 
 interface InterestSubmissionData {
     quantity: number;
@@ -19,7 +20,7 @@ export function useInterestSubmission() {
 
         try {
             console.log(`Submitting interest for product ${productId}:`, data);
-            const response = await fetch('http://localhost:5001/api/interest', {
+            const response = await fetch(`${API_URL}/api/interest`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -53,7 +54,7 @@ export function useInterestSubmission() {
 
         try {
             console.log(`Canceling interest for transaction ${transactionId} by user ${userId}`);
-            const response = await fetch('http://localhost:5001/api/interest', {
+            const response = await fetch(`${API_URL}/api/interest`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ transactionId, userId })

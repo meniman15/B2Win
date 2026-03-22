@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, User as UserIcon, Heart, MessageCircle, PlusSquare, LogOut } from 'lucide-react';
+import { Search, User as UserIcon, Heart, LayoutGrid, PlusSquare, LogOut } from 'lucide-react';
+import { API_URL } from '../config';
 import bitwinLogo from '../assets/Bitwin_logo_final.png';
 import { useAuth } from '../hooks/useAuth';
 import NewProductModal from './NewProductModal';
@@ -51,7 +52,7 @@ export default function Header({ onSearch, onLoginClick, onProfileClick, onHomeC
 
         const timer = setTimeout(() => {
             onSearch(query); // Trigger main grid filter
-            fetch(`http://localhost:5001/api/search?q=${encodeURIComponent(query)}`)
+            fetch(`${API_URL}/api/search?q=${encodeURIComponent(query)}`)
                 .then(res => res.json())
                 .then(data => {
                     setSuggestions(data);
@@ -130,7 +131,7 @@ export default function Header({ onSearch, onLoginClick, onProfileClick, onHomeC
                             >
                                 <LogOut className="w-5 h-5" />
                             </button>
-                            <button 
+                            <button
                                 className="w-10 h-10 rounded-full bg-[#418EAB] text-white flex items-center justify-center font-bold shadow-sm hover:ring-2 hover:ring-[#00AEEF] transition-all cursor-pointer"
                                 onClick={() => onProfileClick?.('profile')}
                             >
@@ -149,7 +150,7 @@ export default function Header({ onSearch, onLoginClick, onProfileClick, onHomeC
                             </span>
                         </button>
                     )}
-                    <button 
+                    <button
                         className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"
                         onClick={() => {
                             if (user && onProfileClick) {
@@ -161,8 +162,12 @@ export default function Header({ onSearch, onLoginClick, onProfileClick, onHomeC
                     >
                         <Heart className="w-6 h-6" />
                     </button>
-                    <button className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors">
-                        <MessageCircle className="w-6 h-6" />
+                    <button
+                        className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"
+                        onClick={onHomeClick}
+                        title="כל הקטגוריות"
+                    >
+                        <LayoutGrid className="w-6 h-6" />
                     </button>
                     <button
                         className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"

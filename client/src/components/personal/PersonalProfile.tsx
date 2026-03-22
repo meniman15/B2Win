@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Pencil } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { API_URL } from '../../config';
 
 interface PersonalProfileProps {
   user: any;
@@ -26,7 +27,7 @@ export default function PersonalProfile({ user }: PersonalProfileProps) {
   useEffect(() => {
     const fetchOrgs = async () => {
       try {
-        const res = await fetch('http://localhost:5001/api/organizations');
+        const res = await fetch(`${API_URL}/api/organizations`);
         if (res.ok) {
           const data = await res.json();
           setOrgs(data);
@@ -45,7 +46,7 @@ export default function PersonalProfile({ user }: PersonalProfileProps) {
         return;
       }
       try {
-        const res = await fetch(`http://localhost:5001/api/organizations/${formData.organizationId}/suborganizations`);
+        const res = await fetch(`${API_URL}/api/organizations/${formData.organizationId}/suborganizations`);
         if (res.ok) {
           const data = await res.json();
           setSubOrgs(data);
@@ -99,7 +100,7 @@ export default function PersonalProfile({ user }: PersonalProfileProps) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:5001/api/user/update', {
+      const res = await fetch(`${API_URL}/api/user/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user?.id, data: formData })

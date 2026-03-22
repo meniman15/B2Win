@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Heart } from 'lucide-react';
 import { getTagColor } from '../utils/theme';
 import { useAuth } from '../hooks/useAuth';
+import { API_URL } from '../config';
 
 import type { Product } from '../types';
 
@@ -59,7 +60,7 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
                         const newState = !isLiked;
                         setIsLiked(newState);
                         try {
-                            await fetch('http://localhost:5001/api/products/like', {
+                            await fetch(`${API_URL}/api/products/like`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ fld_3140: user.id, fld_3139: product.id, fld_3138: newState })

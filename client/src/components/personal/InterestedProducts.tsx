@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Product } from '../../types';
 import ProductCard from '../ProductCard';
+import { API_URL } from '../../config';
 
 interface InterestedProductsProps {
   user: any;
@@ -15,7 +16,7 @@ export default function InterestedProducts({ user, onProductClick }: InterestedP
   const fetchLovedProducts = async () => {
     if (!user?.id) return;
     try {
-      const lovedRes = await fetch('http://localhost:5001/api/products/loved', {
+      const lovedRes = await fetch(`${API_URL}/api/products/loved`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fld_3140: user.id, userId: user.id })
@@ -35,7 +36,7 @@ export default function InterestedProducts({ user, onProductClick }: InterestedP
     
     const fetchInterestedProducts = async () => {
       try {
-        const res = await fetch('http://localhost:5001/api/products/interested', {
+        const res = await fetch(`${API_URL}/api/products/interested`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.id })
