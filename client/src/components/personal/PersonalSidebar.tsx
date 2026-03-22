@@ -22,12 +22,12 @@ export default function PersonalSidebar({ user, activeTab, onSelectTab }: Person
       {/* User Info Header */}
       <div className="p-8 text-center border-b border-[#92C4D6]">
         <div className="flex items-center justify-between mb-4">
+          <div className="w-12 h-12 rounded-full bg-[#1C4E80] text-white flex items-center justify-center font-bold text-xl mr-4">
+            {(user?.firstName || '?').charAt(0)}
+          </div>
           <div className="flex-1 text-right">
             <h2 className="text-xl font-black text-gray-900">{user?.firstName || 'משתמש'} {user?.lastName || ''}</h2>
             <p className="text-sm text-gray-700 font-medium">{[user?.organization, user?.subOrganization].filter(Boolean).join(' - ') || 'יחידה לא ידועה'}</p>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-[#1C4E80] text-white flex items-center justify-center font-bold text-xl ml-4">
-            {(user?.firstName || '?').charAt(0)}
           </div>
         </div>
       </div>
