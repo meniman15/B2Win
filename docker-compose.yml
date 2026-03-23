@@ -11,7 +11,7 @@ services:
     build:
       context: ./client
       args:
-        - VITE_API_URL=http://localhost:5001
+        - VITE_API_URL=http://129.159.158.168:5001
     ports:
       - "8080:80"
     depends_on:
