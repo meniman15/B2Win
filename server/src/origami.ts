@@ -293,7 +293,7 @@ export async function updateUserProfile(userId: string, data: any) {
     if (data.lastName !== undefined) fieldsToUpdate.push(["last_name", data.lastName]);
     if (data.email !== undefined) fieldsToUpdate.push(["email", data.email]);
     if (data.phone !== undefined) fieldsToUpdate.push(["telephone", data.phone]);
-    
+
     if (data.organizationId) {
         fieldsToUpdate.push(["organization", { instance_id: data.organizationId, text: data.organization }]);
     } else if (data.organization !== undefined) {
@@ -707,6 +707,60 @@ export async function getCategories() {
         return data.data || [];
     } catch (error) {
         console.error('Error fetching categories from Origami:', error);
+        throw error;
+    }
+}
+
+export async function getLocations() {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_182",
+        return_groups: ["g_475"],
+        type: 2,
+        limit: [0, 100],
+        with_archive: 0
+    };
+
+    try {
+        console.log('Fetching locations from Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            console.error('Origami Fetch Locations Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        const instances = data.data || [];
+        return instances.map((item: any) => {
+            const groups = item.instance_data.field_groups;
+            const group = groups.find((g: any) => g.field_group_data.group_data_name === 'g_475');
+            const fields = group?.fields_data?.[0] || [];
+            const textField = fields.find((f: any) => f.field_data_name === 'fld_3167');
+
+            return {
+                id: item.instance_data._id,
+                text: textField?.value || 'Unnamed Location'
+            };
+        });
+    } catch (error) {
+        console.error('Error fetching locations from Origami:', error);
         throw error;
     }
 }
@@ -1165,7 +1219,7 @@ export async function createProduct(productData: any, userData: any) {
 
         if (!response.ok || data.error) {
             const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
-            console.error('Origami Create Product Failed:', response.status, errorMsg, data);
+            console.error('Origami Create Product Failed:', response.status, errorMsg, JSON.stringify(data));
             throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
         }
 
@@ -1273,4 +1327,50 @@ export function mapOrigamiCategory(raw: any) {
         name: name,
         icon: 'Package' // Default icon for all categories for now
     };
+}
+
+export async function uploadFileToOrigami(fileBuffer: Buffer, fileName: string, mimeType: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/upload_file`;
+
+    // In Node 21+, FormData and Blob are global. Since we are on Node 24, we can use them.
+    const formData = new FormData();
+    formData.append("username", ORIGAMI_USERNAME);
+    formData.append("api_secret", ORIGAMI_SECRET);
+
+    // Convert Buffer to Blob for FormData
+    const blob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+    formData.append("file", blob, fileName);
+
+    try {
+        console.log('Uploading file to Origami:', url);
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data: any = await response.json();
+        console.log('Origami Upload Full Response:', JSON.stringify(data));
+
+        if (!response.ok || data.success !== "ok") {
+            const errorMsg = data.message || "Upload failed";
+            console.error('Origami Upload Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        console.log('Origami Upload Success:', data.results);
+
+        // Extract the actual file metadata without the success/result wrappers
+        const fileMetadata = data.results || data;
+        if (fileMetadata.success) delete fileMetadata.success;
+        if (fileMetadata.results) delete fileMetadata.results;
+
+        return fileMetadata;
+    } catch (error) {
+        console.error('Error uploading file to Origami:', error);
+        throw error;
+    }
 }

@@ -2,13 +2,16 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-import { categories, products } from './data.js';
-import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId } from './origami.js';
+import { categories } from './data.js';
+import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations } from './origami.js';
+import multer from 'multer';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -90,7 +93,7 @@ app.post('/api/products/like', async (req, res) => {
         const { userId, productId, isLiked, fld_3138, fld_3139, fld_3140 } = req.body;
         const targetUserId = fld_3140 || userId;
         const targetProductId = fld_3139 || productId;
-        
+
         if (!targetUserId || !targetProductId) {
             return res.status(400).json({ error: 'User ID and Product ID are required' });
         }
@@ -144,6 +147,16 @@ app.get('/api/categories/:categoryId/subcategories', async (req, res) => {
         res.json(subCategories);
     } catch (error: any) {
         console.error('Fetch sub-categories error:', error);
+        res.json([]);
+    }
+});
+
+app.get('/api/locations', async (req, res) => {
+    try {
+        const locations = await getLocations();
+        res.json(locations);
+    } catch (error: any) {
+        console.error('Fetch locations error:', error);
         res.json([]);
     }
 });
@@ -225,6 +238,25 @@ app.post('/api/interest', async (req, res) => {
     } catch (error: any) {
         console.error('Interest submission error:', error);
         res.status(500).json({ error: error.message || 'Internal server error during interest submission' });
+    }
+});
+
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const result = await uploadFileToOrigami(
+            req.file.buffer,
+            req.file.originalname,
+            req.file.mimetype
+        );
+
+        res.json(result);
+    } catch (error: any) {
+        console.error('File upload error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error during file upload' });
     }
 });
 

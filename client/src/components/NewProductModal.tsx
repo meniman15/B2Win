@@ -21,6 +21,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
     const [subCategories, setSubCategories] = useState<Category[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedSubCategory, setSelectedSubCategory] = useState('');
+    const [locations, setLocations] = useState<{ id: string, text: string }[]>([]);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [type, setType] = useState('מסירה');
@@ -29,6 +30,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
     const [quantity, setQuantity] = useState<number | string>(1);
     const [location, setLocation] = useState('');
     const [image, setImage] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -37,6 +39,11 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                 .then(res => res.json())
                 .then(data => setCategories(data.filter((c: any) => c.id !== 'all')))
                 .catch(err => console.error('Error fetching categories:', err));
+
+            fetch(`${API_URL}/api/locations`)
+                .then(res => res.json())
+                .then(data => setLocations(data))
+                .catch(err => console.error('Error fetching locations:', err));
         }
     }, [isOpen]);
 
@@ -58,6 +65,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setImage(reader.result as string);
@@ -88,6 +96,36 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
 
         setIsLoading(true);
         try {
+            let imageToSubmit = image;
+
+            // If we have a file, upload it to Origami first via our proxy
+            if (selectedFile) {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const uploadResponse = await fetch(`${API_URL}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    let errorMessage = 'אירעה שגיאה בהעלאת התמונה לאוריגמי.';
+                    try {
+                        const errorData = await uploadResponse.json();
+                        if (errorData.error) {
+                            errorMessage = `העלאת תמונה נכשלה: ${errorData.error}`;
+                        }
+                    } catch (e) {
+                        // If JSON parsing fails, keep default error
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const uploadData = await uploadResponse.json();
+                // Store the full metadata object returned by Origami
+                imageToSubmit = uploadData;
+            }
+
             const response = await fetch(`${API_URL}/api/products`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -102,7 +140,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                         price: type === 'מסירה' ? 0 : Number(price),
                         quantity: Number(quantity),
                         location,
-                        image
+                        image: imageToSubmit
                     },
                     userData: user
                 })
@@ -120,9 +158,14 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
             setQuantity(1);
             setLocation('');
             setImage(null);
-        } catch (error) {
+            setSelectedFile(null);
+        } catch (error: any) {
             console.error('Error creating product:', error);
-            alert('אירעה שגיאה ביצירת הפריט. נא לנסות שנית.');
+            // Use the specific error message if it's already in Hebrew/meaningful
+            const message = error.message.includes('העלאת') || error.message.includes('נכשלה') 
+                ? error.message 
+                : 'אירעה שגיאה ביצירת הפריט. נא לוודא שכל השדות תקינים ולנסות שנית.';
+            alert(message);
         } finally {
             setIsLoading(false);
         }
@@ -257,13 +300,17 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                                 {/* Location */}
                                 <div className="space-y-2 col-span-2">
                                     <label className="block text-lg font-bold text-gray-700">מיקום המוצר *</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={location}
                                         onChange={(e) => setLocation(e.target.value)}
-                                        placeholder="למשל: תל אביב, ירושלים"
-                                        className={`w-full h-14 px-6 rounded-2xl border-2 ${errors.location ? 'border-red-500' : 'border-gray-100'} focus:border-[#F39200] focus:outline-none text-lg font-medium transition-all`}
-                                    />
+                                        className={`w-full h-14 px-6 rounded-2xl border-2 ${errors.location ? 'border-red-500' : 'border-gray-100'} focus:border-[#F39200] focus:outline-none text-lg font-medium transition-all appearance-none bg-no-repeat bg-[left_1.5rem_top_50%]`}
+                                        style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23gray\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'%3E%3C/polyline%3E%3C/svg%3E")' }}
+                                    >
+                                        <option value="">בחירת מיקום</option>
+                                        {locations.map(loc => (
+                                            <option key={loc.id} value={loc.id}>{loc.text}</option>
+                                        ))}
+                                    </select>
                                     {errors.location && <span className="text-red-500 text-sm font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.location}</span>}
                                 </div>
 
