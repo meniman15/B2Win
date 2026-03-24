@@ -727,8 +727,8 @@ export async function getLocations() {
     const body = {
         username: ORIGAMI_USERNAME,
         api_secret: ORIGAMI_SECRET,
-        entity_data_name: "e_182",
-        return_groups: ["g_475"],
+        entity_data_name: "e_149",
+        return_groups: ["g_379"],
         type: 2,
         limit: [0, 100],
         with_archive: 0
@@ -756,9 +756,9 @@ export async function getLocations() {
         const instances = data.data || [];
         return instances.map((item: any) => {
             const groups = item.instance_data.field_groups;
-            const group = groups.find((g: any) => g.field_group_data.group_data_name === 'g_475');
+            const group = groups.find((g: any) => g.field_group_data.group_data_name === 'g_379');
             const fields = group?.fields_data?.[0] || [];
-            const textField = fields.find((f: any) => f.field_data_name === 'fld_3167');
+            const textField = fields.find((f: any) => f.field_data_name === 'fld_2426');
 
             return {
                 id: item.instance_data._id,
