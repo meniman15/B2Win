@@ -9,9 +9,10 @@ interface PersonalPageProps {
   user: any;
   initialTab?: string;
   onProductClick: (product: any) => void;
+  lastInterestChange?: { productId: string; isInterested: boolean } | null;
 }
 
-export default function PersonalPage({ user, initialTab = 'profile', onProductClick }: PersonalPageProps) {
+export default function PersonalPage({ user, initialTab = 'profile', onProductClick, lastInterestChange }: PersonalPageProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function PersonalPage({ user, initialTab = 'profile', onProductCl
       case 'profile':
         return <PersonalProfile user={user} />;
       case 'interested':
-        return <InterestedProducts user={user} onProductClick={onProductClick} />;
+        return <InterestedProducts user={user} onProductClick={onProductClick} lastInterestChange={lastInterestChange} />;
       case 'posted':
         return <PostedProducts user={user} onProductClick={onProductClick} />;
       case 'queue':

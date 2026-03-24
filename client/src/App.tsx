@@ -21,6 +21,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [lastInterestChange, setLastInterestChange] = useState<{ productId: string; isInterested: boolean } | null>(null);
 
   // Modal State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -51,6 +52,7 @@ function App() {
       }
       return p;
     }));
+    setLastInterestChange({ productId, isInterested });
   };
 
   useEffect(() => {
@@ -108,7 +110,7 @@ function App() {
 
       <main className={`flex-grow transition-all duration-300 ${isModalOpen || isAuthModalOpen ? 'blur-md pointer-events-none' : ''}`}>
         {currentPage === 'profile' && user ? (
-          <PersonalPage user={user} initialTab={profileTab} onProductClick={handleProductClick} />
+          <PersonalPage user={user} initialTab={profileTab} onProductClick={handleProductClick} lastInterestChange={lastInterestChange} />
         ) : (
           <>
             <CategoryNav

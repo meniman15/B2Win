@@ -514,27 +514,37 @@ export async function getProducts() {
             return statusValue === 'חדש' || statusValue === 'במשא ומתן';
         });
 
-        // Map product IDs for efficient interest filtering
-        const productIds = instances.map((inst: any) => inst.instance_data._id);
+        // Inject interests into instances for mapping
+        return await injectInterests(instances);
+    } catch (error) {
+        console.error('Error fetching products from Origami:', error);
+        throw error;
+    }
+}
+async function injectInterests(instances: any[]) {
+    if (!instances || instances.length === 0) return instances;
 
-        const interestMap: { [key: string]: string[] } = {};
+    // Use a Set for unique IDs if needed, but here simple map is fine
+    const productIds = instances.map((inst: any) => inst.instance_data._id);
+    const interestMap: { [key: string]: string[] } = {};
 
-        if (productIds.length > 0) {
-            // Fetch active interests for these specific products
-            const interestsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
-            const interestsBody = {
-                username: ORIGAMI_USERNAME,
-                api_secret: ORIGAMI_SECRET,
-                entity_data_name: "interests",
-                return_groups: ["transaction_details", "interested_details"],
-                type: 2,
-                with_archive: 0,
-                filter: [
-                    ["fld_3089", "!=", "true"],
-                    ["transaction_details.transaction_id.instance_id", "in", productIds]
-                ]
-            };
+    if (productIds.length > 0) {
+        // Fetch active interests for these specific products
+        const interestsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+        const interestsBody = {
+            username: ORIGAMI_USERNAME,
+            api_secret: ORIGAMI_SECRET,
+            entity_data_name: "interests",
+            return_groups: ["transaction_details", "interested_details"],
+            type: 2,
+            with_archive: 0,
+            filter: [
+                ["fld_3089", "!=", "true"],
+                ["transaction_details.transaction_id.instance_id", "in", productIds]
+            ]
+        };
 
+        try {
             const interestsResponse = await fetch(interestsUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -557,25 +567,21 @@ export async function getProducts() {
                     }
                 }
             });
-
-            console.log('Interest Map populated:', JSON.stringify(interestMap, null, 2));
+        } catch (err) {
+            console.error('Error injecting interests:', err);
+            // Non-blocking error, just continue without interests
         }
-
-        // Inject interests into instances for mapping
-        instances.forEach((inst: any) => {
-            const prodId = inst.instance_data._id;
-            inst.interestedUserIds = interestMap[prodId] || [];
-            if (inst.interestedUserIds.length > 0) {
-                console.log(`Product ${prodId} has interests:`, inst.interestedUserIds);
-            }
-        });
-
-        return instances;
-    } catch (error) {
-        console.error('Error fetching products from Origami:', error);
-        throw error;
     }
+
+    // Inject interests into instances
+    instances.forEach((inst: any) => {
+        const prodId = inst.instance_data._id;
+        inst.interestedUserIds = interestMap[prodId] || [];
+    });
+
+    return instances;
 }
+
 function getFieldValue(groups: any[], groupDataName: string, fieldDataName: string) {
     const group = groups.find((g: any) => g.field_group_data.group_data_name === groupDataName);
     if (!group || !group.fields_data || group.fields_data.length === 0) return null;
@@ -802,7 +808,7 @@ export async function getProductsBySeller(userId: string) {
         }
 
         let instances = data.data || [];
-        return instances;
+        return await injectInterests(instances);
     } catch (error) {
         console.error('Error fetching posted products from Origami:', error);
         throw error;
@@ -887,7 +893,7 @@ export async function getInterestedProductsByUserId(userId: string) {
         }
 
         let instances = productsData.data || [];
-        return instances;
+        return await injectInterests(instances);
     } catch (error) {
         console.error('Error fetching interested products from Origami:', error);
         throw error;
@@ -1006,7 +1012,7 @@ export async function getLikedProductsByUserId(fld_3140: string) {
 
         if (!productsResponse.ok || productsData.error) return [];
 
-        return productsData.data || [];
+        return await injectInterests(productsData.data || []);
     } catch (error) {
         console.error('Error fetching liked products:', error);
         throw error;
