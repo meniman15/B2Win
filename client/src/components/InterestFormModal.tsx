@@ -7,9 +7,10 @@ interface InterestFormModalProps {
     onSubmit: (data: { quantity: number; message: string }) => void;
     productName: string;
     isLoading?: boolean;
+    maxQuantity?: number;
 }
 
-export default function InterestFormModal({ isOpen, onClose, onSubmit, productName, isLoading }: InterestFormModalProps) {
+export default function InterestFormModal({ isOpen, onClose, onSubmit, productName, isLoading, maxQuantity }: InterestFormModalProps) {
     const [quantity, setQuantity] = useState(1);
     const [message, setMessage] = useState('');
 
@@ -56,8 +57,16 @@ export default function InterestFormModal({ isOpen, onClose, onSubmit, productNa
                                 <input
                                     type="number"
                                     value={quantity}
-                                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 1;
+                                        if (maxQuantity && val > maxQuantity) {
+                                            setQuantity(maxQuantity);
+                                        } else {
+                                            setQuantity(val);
+                                        }
+                                    }}
                                     min="1"
+                                    max={maxQuantity}
                                     className="w-16 h-12 rounded-xl border-2 border-[#F39200] text-center text-xl font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#F39200]/20"
                                 />
                             </div>

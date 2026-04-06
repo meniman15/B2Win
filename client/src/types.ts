@@ -7,6 +7,7 @@ export interface Product {
     location: string;
     imageUrl: string;
     seller: string;
+    sellerId?: string;
     status: string;
     description: string;
     manufacturer?: string;
@@ -17,6 +18,19 @@ export interface Product {
     interestedUserIds?: string[];
     sellerPhone?: string;
     sellerEmail?: string;
+    quantity?: number;
+}
+
+export interface QAItem {
+    id: string;
+    question: string;
+    answer?: string;
+    askerId?: string;
+    askerName?: string;
+    answererId?: string;
+    productId: string;
+    date?: string;
+    isPublished: boolean;
 }
 
 export interface Category {

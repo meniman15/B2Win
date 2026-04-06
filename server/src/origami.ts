@@ -8,6 +8,15 @@ const ORIGAMI_SECRET = process.env.ORIGAMI_SECRET;
 function formatOrigamiError(error: any) {
     if (typeof error === 'string') return error;
     if (error && typeof error === 'object') {
+        // Handle validation errors specifically as requested
+        if (error.type === 'validation' && Array.isArray(error.column)) {
+            const validationDetails = error.column
+                .map((col: any) => `"${col.field_name}": ${col.message || 'ערך לא תקין'}`)
+                .join('\n');
+
+            return `אירעה שגיאה ביצירת הפריט, נא לוודא שכל השדות תקינים ולנסות שנית.\nשגיאה:\n${validationDetails}`;
+        }
+
         const type = error.type || error.error || '';
         const message = error.message || error.error_message || '';
         if (type && message) return `${type}: ${message}`;
@@ -113,7 +122,7 @@ export async function authenticateUser(fullName: string, phone: string) {
                     with_archive: 0,
                     filter: [
                         ["fld_3089", "!=", "true"],
-                        ["interested_details.interested_id", "=", userId]
+                        ["interested_id.instance_id", "=", userId]
                     ]
                 };
 
@@ -128,7 +137,8 @@ export async function authenticateUser(fullName: string, phone: string) {
                     const interestsItems = interestsData.data || [];
                     interestsItems.forEach((item: any) => {
                         const groups = item.instance_data.field_groups;
-                        const transId = getFieldValue(groups, 'transaction_details', 'transaction_id')?.instance_id;
+                        const transIdValue = getFieldValue(groups, 'transaction_details', 'transaction_id');
+                        const transId = transIdValue?.instance_id || transIdValue;
                         if (transId && !interestList.includes(transId)) {
                             interestList.push(transId);
                         }
@@ -357,7 +367,7 @@ export async function submitInterest(userData: any, transactionId: string, quant
                 group_data_name: "interested_details",
                 data: [
                     {
-                        interested_id: userData.id,
+                        interested_id: { instance_id: userData.id, text: `${userData.firstName} ${userData.lastName}` },
                         interested_full_name: `${userData.firstName} ${userData.lastName}`,
                         interested_email: userData.email,
                         interested_telephone: userData.phone,
@@ -422,7 +432,7 @@ export async function cancelInterest(transactionId: string, userId: string) {
                 transactionId
             ],
             [
-                "interested_details.interested_id",
+                "interested_id.instance_id",
                 "=",
                 userId
             ]
@@ -629,8 +639,10 @@ export function mapOrigamiProduct(raw: any) {
     const sellerName = getFieldValue(groups, 'g_452', 'fld_3034');
     const sellerPhone = getFieldValue(groups, 'g_452', 'fld_3035');
     const sellerEmail = getFieldValue(groups, 'g_452', 'fld_3036');
+    const sellerIdObj = getFieldValue(groups, 'g_452', 'fld_3130');
     const logisticsComment = getFieldValue(groups, 'g_455', 'fld_3057');
     const imageObj = getFieldValue(groups, 'g_456', 'fld_3030');
+    const productQuantity = getFieldValue(groups, 'g_451', 'fld_3032');
 
     const faqRaw = getRepeatableFieldValues(groups, 'g_453', {
         question: 'fld_3039',
@@ -657,8 +669,9 @@ export function mapOrigamiProduct(raw: any) {
         categoryName: categoryName,
         price: Number(price) || 0,
         location: locationObj?.text || 'לא צוין',
-        imageUrl: imageObj?.location || 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=1000',
+        imageUrl: imageObj?.location || '',
         seller: String(sellerName || 'מוכר חסוי'),
+        sellerId: sellerIdObj?.instance_id || '',
         status: String(status || 'חדש'),
         description: displayDescription,
         manufacturer: subCategoryName || '-',
@@ -669,6 +682,7 @@ export function mapOrigamiProduct(raw: any) {
         faq: faq,
         sellerPhone: sellerPhone ? String(sellerPhone) : '',
         sellerEmail: sellerEmail ? String(sellerEmail) : '',
+        quantity: productQuantity ? Number(productQuantity) : 1,
     };
 
     console.log('Mapped Product:', result.id, result.name, result.category, result.price);
@@ -831,7 +845,7 @@ export async function getInterestedProductsByUserId(userId: string) {
         with_archive: 0,
         filter: [
             ["fld_3089", "!=", "true"],
-            ["interested_details.interested_id", "=", userId]
+            ["interested_id.instance_id", "=", userId]
         ]
     };
 
@@ -1224,9 +1238,10 @@ export async function createProduct(productData: any, userData: any) {
         const data = await response.json();
 
         if (!response.ok || data.error) {
-            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            const errorMsg = formatOrigamiError(data.error || data.error_message || 'Unknown error');
             console.error('Origami Create Product Failed:', response.status, errorMsg, JSON.stringify(data));
-            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+            // Throw the formatted message directly
+            throw new Error(errorMsg);
         }
 
         return data.results || data;
@@ -1377,6 +1392,256 @@ export async function uploadFileToOrigami(fileBuffer: Buffer, fileName: string, 
         return fileMetadata;
     } catch (error) {
         console.error('Error uploading file to Origami:', error);
+        throw error;
+    }
+}
+
+// ==================== Q&A Functions ====================
+
+export async function getQuestionsForProduct(productId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "Q_A_details",
+        return_groups: ["g_503"],
+        with_archive: 0,
+        filter: [
+            ["Q_A_post.instance_id", "=", productId]
+        ]
+    };
+
+    try {
+        console.log('Fetching Q&A for product:', productId);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Fetch Q&A Failed:', response.status, errorMsg);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        const instances = data.data || [];
+        return instances
+            .filter((item: any) => !item.instance_data.archived)
+            .map((item: any) => {
+                const groups = item.instance_data.field_groups;
+                const question = getFieldValue(groups, 'g_503', 'Q_A_question');
+                const answer = getFieldValue(groups, 'g_503', 'Q_A_answer');
+                const askerObj = getFieldValue(groups, 'g_503', 'Q_A_Q');
+                const answererObj = getFieldValue(groups, 'g_503', 'Q_A_A');
+                const postObj = getFieldValue(groups, 'g_503', 'Q_A_post');
+                const date = getFieldValue(groups, 'g_503', 'Q_A_date');
+                const publishStatus = getFieldValue(groups, 'g_503', 'Q_A_publishStatus');
+
+                return {
+                    id: item.instance_data._id,
+                    question: (typeof question === 'object' ? question?.text : question) || '',
+                    answer: (typeof answer === 'object' ? answer?.text : answer) || '',
+                    askerId: askerObj?.instance_id || (typeof askerObj === 'string' ? askerObj : ''),
+                    askerName: (typeof askerObj === 'object' ? askerObj?.text : String(askerObj || '')) || '',
+                    answererId: answererObj?.instance_id || (typeof answererObj === 'string' ? answererObj : ''),
+                    productId: postObj?.instance_id || productId,
+                    date: (typeof date === 'object' ? (date?.text || '') : String(date || '')),
+                    isPublished: publishStatus === 'true' || publishStatus === true || publishStatus === '1' || publishStatus === 1 || !!(typeof answer === 'object' ? answer?.text : answer)
+                };
+            });
+    } catch (error) {
+        console.error('Error fetching Q&A from Origami:', error);
+        throw error;
+    }
+}
+
+export async function createQuestion(productId: string, question: string, askerId: string, askerName: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/create_instance/format/json`;
+
+    const now = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "Q_A_details",
+        form_data: [
+            {
+                group_data_name: "g_503",
+                data: [
+                    {
+                        Q_A_question: question,
+                        Q_A_answer: "",
+                        Q_A_Q: { instance_id: askerId, text: askerName },
+                        Q_A_A: "",
+                        Q_A_post: { instance_id: productId },
+                        Q_A_date: now,
+                        Q_A_publishStatus: ""
+                    }
+                ]
+            }
+        ]
+    };
+
+    try {
+        console.log('Creating Q&A question for product:', productId);
+        console.log('Q&A Create Request Body:', JSON.stringify(body, null, 2));
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+        console.log('Q&A Create Full Response:', JSON.stringify(data, null, 2));
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Create Q&A Failed:', response.status, errorMsg);
+            console.error('Full error data:', JSON.stringify(data, null, 2));
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        console.log('Origami Create Q&A Success:', JSON.stringify(data));
+        return data.results || data;
+    } catch (error) {
+        console.error('Error creating Q&A in Origami:', error);
+        throw error;
+    }
+}
+
+export async function answerQuestion(qaId: string, answer: string, answererId: string, answererName: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "Q_A_details",
+        filter: [["_id", "=", qaId]],
+        field: [
+            ["Q_A_answer", answer],
+            ["Q_A_A", { instance_id: answererId, text: answererName }]
+        ]
+    };
+
+    try {
+        console.log('Answering Q&A question:', qaId);
+        console.log('Q&A Answer Request Body:', JSON.stringify(body, null, 2));
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+        console.log('Q&A Answer Full Response:', JSON.stringify(data, null, 2));
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Answer Q&A Failed:', response.status, errorMsg);
+            console.error('Full error data:', JSON.stringify(data, null, 2));
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        console.log('Origami Answer Q&A Success:', JSON.stringify(data));
+        return data.results || data;
+    } catch (error) {
+        console.error('Error answering Q&A in Origami:', error);
+        throw error;
+    }
+}
+
+export async function deleteQuestion(qaId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/remove_instance/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "Q_A_details",
+        group_data_name: "g_503",
+        _ids: [qaId]
+    };
+
+    try {
+        console.log('Removing Q&A question instance:', qaId);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Remove Q&A Failed:', response.status, errorMsg);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        console.log('Origami Remove Q&A Success:', JSON.stringify(data));
+        return data.results || data;
+    } catch (error) {
+        console.error('Error removing Q&A in Origami:', error);
+        throw error;
+    }
+}
+
+export async function updateProductStatus(productId: string, status: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_175",
+        filter: [["_id", "=", productId]],
+        field: [
+            ["fld_3038", status]
+        ]
+    };
+
+    try {
+        console.log(`Updating product status in Origami: ${productId} -> ${status}`);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Update Product Status Failed:', response.status, errorMsg);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        console.log('Origami Update Product Status Success:', JSON.stringify(data));
+        return data.results || data;
+    } catch (error) {
+        console.error('Error updating product status in Origami:', error);
         throw error;
     }
 }

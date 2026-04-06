@@ -64,14 +64,19 @@ function App() {
     fetch(url)
       .then(res => res.json())
       .then(data => {
+        // Filter out my own products from the general list
+        const filteredData = user?.id 
+          ? data.filter((p: Product) => p.sellerId !== user.id) 
+          : data;
+
         // Only show transition if the results have actually changed
-        const resultsChanged = JSON.stringify(data) !== JSON.stringify(products);
+        const resultsChanged = JSON.stringify(filteredData) !== JSON.stringify(products);
 
         if (resultsChanged) {
           setIsTransitioning(true);
           // Briefly fade out old results before showing new ones
           setTimeout(() => {
-            setProducts(data);
+            setProducts(filteredData);
             setIsTransitioning(false);
             setLoading(false);
           }, 100);
@@ -83,7 +88,7 @@ function App() {
         console.error('Error fetching products:', err);
         setLoading(false);
       });
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, user?.id]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans" dir="rtl">

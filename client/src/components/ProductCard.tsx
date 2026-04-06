@@ -17,6 +17,7 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
     const auth = useAuth() as any;
     const { user, updateUser } = auth;
     const isUserInterested = user && product.interestedUserIds?.includes(user.id || '');
+    const isOwner = !!(user?.id && product?.sellerId && user.id === product.sellerId);
     
     const [isLiked, setIsLiked] = useState(false);
 
@@ -29,7 +30,7 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
     }, [isLikedInit, user, product.id]);
 
     const getTagText = (status: string) => {
-        if (isUserInterested) return 'הבעתי עניין';
+        if (isUserInterested && !isOwner) return 'הבעתי עניין';
         return status;
     };
 
@@ -42,14 +43,25 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
             {/* Image Container */}
             <div className="relative aspect-square mb-2">
                 <div className="w-full h-full overflow-hidden rounded-[2rem] border border-gray-100">
-                    <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=1000';
-                        }}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
+                    {product.imageUrl ? (
+                        <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).parentElement?.classList.add('bg-gray-100', 'flex', 'items-center', 'justify-center');
+                                const placeholder = document.createElement('div');
+                                placeholder.className = 'text-gray-400 font-bold text-sm';
+                                placeholder.innerText = 'אין תמונה';
+                                (e.target as HTMLImageElement).parentElement?.appendChild(placeholder);
+                            }}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                            <span className="text-gray-400 font-bold text-sm">אין תמונה</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* TODO: save like selection and present as liked */}

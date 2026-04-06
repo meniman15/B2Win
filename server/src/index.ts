@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories } from './data.js';
-import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations } from './origami.js';
+import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus } from './origami.js';
 import multer from 'multer';
 
 dotenv.config();
@@ -276,6 +276,70 @@ app.post('/api/products', async (req, res) => {
     }
 });
 
+// ==================== Q&A Routes ====================
+
+app.get('/api/products/:id/questions', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ error: 'Product ID is required' });
+        }
+        const questions = await getQuestionsForProduct(id);
+        res.json(questions);
+    } catch (error: any) {
+        console.error('Fetch questions error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching questions' });
+    }
+});
+
+app.post('/api/products/:id/questions', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { question, askerId, askerName } = req.body;
+
+        if (!id || !question || !askerId) {
+            return res.status(400).json({ error: 'Product ID, question, and askerId are required' });
+        }
+
+        const result = await createQuestion(id, question, askerId, askerName || '');
+        res.json(result);
+    } catch (error: any) {
+        console.error('Create question error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error creating question' });
+    }
+});
+
+app.patch('/api/questions/:qaId/answer', async (req, res) => {
+    try {
+        const { qaId } = req.params;
+        const { answer, answererId, answererName } = req.body;
+
+        if (!qaId || !answer || !answererId) {
+            return res.status(400).json({ error: 'Q&A ID, answer, and answererId are required' });
+        }
+
+        const result = await answerQuestion(qaId, answer, answererId, answererName || '');
+        res.json(result);
+    } catch (error: any) {
+        console.error('Answer question error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error answering question' });
+    }
+});
+
+app.delete('/api/questions/:qaId', async (req, res) => {
+    try {
+        const { qaId } = req.params;
+        if (!qaId) {
+            return res.status(400).json({ error: 'Q&A ID is required' });
+        }
+        const result = await deleteQuestion(qaId);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Delete question error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error deleting question' });
+    }
+});
+
 app.post('/api/auth/register', async (req, res) => {
     const { userData } = req.body;
 
@@ -309,6 +373,21 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Internal server error during authentication' });
+    }
+});
+
+app.patch('/api/products/:id/status', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        if (!id || !status) {
+            return res.status(400).json({ error: 'Product ID and status are required' });
+        }
+        const result = await updateProductStatus(id, status);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Update product status error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error updating product status' });
     }
 });
 

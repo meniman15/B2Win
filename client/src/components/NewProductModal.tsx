@@ -146,7 +146,10 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to create product');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'אירעה שגיאה ביצירת הפריט.');
+            }
 
             onClose();
             // Reset form
@@ -161,11 +164,8 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
             setSelectedFile(null);
         } catch (error: any) {
             console.error('Error creating product:', error);
-            // Use the specific error message if it's already in Hebrew/meaningful
-            const message = error.message.includes('העלאת') || error.message.includes('נכשלה') 
-                ? error.message 
-                : 'אירעה שגיאה ביצירת הפריט. נא לוודא שכל השדות תקינים ולנסות שנית.';
-            alert(message);
+            // Show the formatted message directly from the error
+            alert(error.message);
         } finally {
             setIsLoading(false);
         }
@@ -318,7 +318,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                                 <div className="space-y-4 col-span-2">
                                     <label className="block text-lg font-bold text-gray-700">מצב הפריט *</label>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        {['חדש באריזה', 'חדש מחוץ לקופסא', 'שימוש קל', 'שימוש מלא'].map((c) => (
+                                        {['חדש באריזה', 'חדש מחוץ לקופסה', 'שימוש קל', 'שימוש מלא'].map((c) => (
                                             <button
                                                 key={c}
                                                 type="button"

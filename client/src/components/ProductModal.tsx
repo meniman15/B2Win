@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
-import { ArrowRight, Phone, Mail } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowRight, Phone, Mail, MessageCircleQuestion, Send, ChevronDown, ChevronUp, Clock, CheckCircle2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTagColor } from '../utils/theme';
 import { useInterestSubmission } from '../hooks/useInterestSubmission';
 import { useAuth } from '../hooks/useAuth';
 import InterestFormModal from './InterestFormModal';
+import { API_URL } from '../config';
 
-import type { Product } from '../types';
+import type { Product, QAItem } from '../types';
 
 interface ProductModalProps {
     product: Product | null;
@@ -39,6 +40,160 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
             reset();
         }
     }, [isOpen, reset]);
+
+    // ==================== Q&A State ====================
+    const [qaItems, setQaItems] = useState<QAItem[]>([]);
+    const [qaLoading, setQaLoading] = useState(false);
+    const [newQuestion, setNewQuestion] = useState('');
+    const [askingLoading, setAskingLoading] = useState(false);
+    const [askSuccess, setAskSuccess] = useState(false);
+    const [answerTexts, setAnswerTexts] = useState<{ [qaId: string]: string }>({});
+    const [answeringId, setAnsweringId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [expandedQA, setExpandedQA] = useState<Set<string>>(new Set());
+
+    const isOwner = !!(user?.id && product?.sellerId && user.id === product.sellerId);
+    const isAdmin = true; // Simulated for now - all users are admins
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+    const handleStatusUpdate = async (newStatus: string) => {
+        if (!product || isUpdatingStatus) return;
+        setIsUpdatingStatus(true);
+        try {
+            const response = await fetch(`${API_URL}/api/products/${product.id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (response.ok) {
+                // Close and reload to show new status
+                setTimeout(() => {
+                    onClose();
+                    window.location.reload();
+                }, 500);
+            } else {
+                const errData = await response.json();
+                console.error('Failed to update status:', errData.error);
+                alert('שגיאה בעדכון הסטטוס: ' + (errData.error || 'נסה שוב מאוחר יותר'));
+            }
+        } catch (err) {
+            console.error('Error updating status:', err);
+            alert('שגיאה בתקשורת עם השרת');
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const fetchQuestions = useCallback(async () => {
+        if (!product?.id || !isOpen) return;
+        setQaLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/api/products/${product.id}/questions`);
+            if (res.ok) {
+                const data = await res.json();
+                setQaItems(data);
+            }
+        } catch (err) {
+            console.error('Error fetching Q&A:', err);
+        } finally {
+            setQaLoading(false);
+        }
+    }, [product?.id, isOpen]);
+
+    useEffect(() => {
+        fetchQuestions();
+        // Reset Q&A state when modal closes
+        if (!isOpen) {
+            setQaItems([]);
+            setNewQuestion('');
+            setAskSuccess(false);
+            setAnswerTexts({});
+            setAnsweringId(null);
+            setExpandedQA(new Set());
+        }
+    }, [isOpen, product?.id, fetchQuestions]);
+
+    const handleAskQuestion = async () => {
+        if (!newQuestion.trim() || !user?.id || !product?.id) return;
+        setAskingLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/api/products/${product.id}/questions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: newQuestion.trim(),
+                    askerId: user.id,
+                    askerName: `${user.firstName} ${user.lastName}`
+                })
+            });
+            if (res.ok) {
+                setNewQuestion('');
+                setAskSuccess(true);
+                setTimeout(() => setAskSuccess(false), 3000);
+                fetchQuestions();
+            }
+        } catch (err) {
+            console.error('Error asking question:', err);
+        } finally {
+            setAskingLoading(false);
+        }
+    };
+
+    const handleAnswerQuestion = async (qaId: string) => {
+        const answer = answerTexts[qaId]?.trim();
+        if (!answer || !user?.id) return;
+        setAnsweringId(qaId);
+        try {
+            const res = await fetch(`${API_URL}/api/questions/${qaId}/answer`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    answer,
+                    answererId: user.id,
+                    answererName: `${user.firstName} ${user.lastName}`
+                })
+            });
+            if (res.ok) {
+                setAnswerTexts(prev => ({ ...prev, [qaId]: '' }));
+                fetchQuestions();
+            }
+        } catch (err) {
+            console.error('Error answering question:', err);
+        } finally {
+            setAnsweringId(null);
+        }
+    };
+
+    const handleDeleteQuestion = async (qaId: string) => {
+        if (!window.confirm('האם אתה בטוח שברצונך למחוק את השאלה?')) return;
+        setDeletingId(qaId);
+        try {
+            const res = await fetch(`${API_URL}/api/questions/${qaId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                fetchQuestions();
+            }
+        } catch (err) {
+            console.error('Error deleting question:', err);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const toggleQAExpand = (qaId: string) => {
+        setExpandedQA(prev => {
+            const next = new Set(prev);
+            if (next.has(qaId)) next.delete(qaId);
+            else next.add(qaId);
+            return next;
+        });
+    };
+
+    // Derived Q&A data
+    const publishedQA = qaItems.filter(q => q.isPublished);
+    const unansweredQA = qaItems.filter(q => !q.isPublished);
 
     const handleInterestClick = async () => {
         if (!user) {
@@ -121,7 +276,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                             </div>
 
                                             <div className="space-y-3">
-                                                {isInterested ? (
+                                                {(isInterested || isOwner) ? (
                                                     <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
                                                         {product.sellerEmail && (
                                                             (product.sellerEmail.length > 25) ? (
@@ -177,69 +332,116 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                             </div>
                                         </div>
 
-                                        {/* Interest Badge */}
-                                        <button
-                                            onClick={handleInterestClick}
-                                            disabled={isLoading}
-                                            className={`w-full py-4 rounded-2xl font-black text-lg shadow-md transition-all flex items-center justify-center relative overflow-hidden ${isInterested
-                                                ? 'bg-[#EF4444] text-white hover:bg-[#DC2626] shadow-[0_4px_12px_rgba(239,68,68,0.3)]'
-                                                : 'bg-[#8DC63F] text-white hover:bg-[#7db137] shadow-[0_4px_12px_rgba(141,198,63,0.3)]'
-                                                } ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
-                                        >
-                                            <AnimatePresence mode="wait">
-                                                {isLoading ? (
-                                                    <motion.div
-                                                        key="loading"
-                                                        initial={{ opacity: 0, y: 10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: -10 }}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                        <span>שולח...</span>
-                                                    </motion.div>
-                                                ) : isInterested ? (
-                                                    <motion.div
-                                                        key="remove"
-                                                        initial={{ opacity: 0, y: 10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: -10 }}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        הסר התעניינות
-                                                    </motion.div>
-                                                ) : (
-                                                    <motion.div
-                                                        key="submit"
-                                                        initial={{ opacity: 0, y: 10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: -10 }}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        הגשת התעניינות
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </button>
+                                        {/* Admin Actions - For owner (simulated admin) */}
+                                        {isOwner && isAdmin && product.status === 'ממתין לאישור' && (
+                                            <div className="flex flex-col gap-3">
+                                                <button
+                                                    onClick={() => handleStatusUpdate('חדש')}
+                                                    disabled={isUpdatingStatus}
+                                                    className={`w-full py-4 rounded-2xl font-black text-lg border-2 border-[#8DC63F] text-[#8DC63F] hover:bg-[#8DC63F] hover:text-white transition-all transform flex items-center justify-center gap-2 ${isUpdatingStatus ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
+                                                >
+                                                    {isUpdatingStatus ? (
+                                                        <div className="w-5 h-5 border-2 border-[#8DC63F] border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <>
+                                                            <CheckCircle2 className="w-5 h-5" />
+                                                            אשר פרסום
+                                                        </>
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleStatusUpdate('לא רלוונטי')}
+                                                    disabled={isUpdatingStatus}
+                                                    className={`w-full py-4 rounded-2xl font-black text-lg border-2 border-[#EF4444] text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-all transform flex items-center justify-center gap-2 ${isUpdatingStatus ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
+                                                >
+                                                    {isUpdatingStatus ? (
+                                                        <div className="w-5 h-5 border-2 border-[#EF4444] border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <>
+                                                            <Trash2 className="w-5 h-5" />
+                                                            דחה פרסום
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Interest Badge - Hidden for owner */}
+                                        {!isOwner && (
+                                            <button
+                                                onClick={handleInterestClick}
+                                                disabled={isLoading}
+                                                className={`w-full py-4 rounded-2xl font-black text-lg shadow-md transition-all flex items-center justify-center relative overflow-hidden ${isInterested
+                                                    ? 'bg-[#EF4444] text-white hover:bg-[#DC2626] shadow-[0_4px_12px_rgba(239,68,68,0.3)]'
+                                                    : 'bg-[#8DC63F] text-white hover:bg-[#7db137] shadow-[0_4px_12px_rgba(141,198,63,0.3)]'
+                                                    } ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
+                                            >
+                                                <AnimatePresence mode="wait">
+                                                    {isLoading ? (
+                                                        <motion.div
+                                                            key="loading"
+                                                            initial={{ opacity: 0, y: 10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            className="flex items-center gap-2"
+                                                        >
+                                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            <span>שולח...</span>
+                                                        </motion.div>
+                                                    ) : isInterested ? (
+                                                        <motion.div
+                                                            key="remove"
+                                                            initial={{ opacity: 0, y: 10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            className="flex items-center gap-2"
+                                                        >
+                                                            הסר התעניינות
+                                                        </motion.div>
+                                                    ) : (
+                                                        <motion.div
+                                                            key="submit"
+                                                            initial={{ opacity: 0, y: 10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            className="flex items-center gap-2"
+                                                        >
+                                                            הגשת התעניינות
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </button>
+                                        )}
                                     </div>
 
                                     {/* Right Side - Image and Details (Takes 8 cols) */}
                                     <div className="lg:col-span-8 space-y-8">
                                         {/* Hero Image Section */}
                                         <div className="relative aspect-video group">
-                                            <div className="w-full h-full overflow-hidden rounded-[2rem] border border-gray-100">
-                                                <img
-                                                    src={product.imageUrl}
-                                                    alt={product.name}
-                                                    onError={(e) => {
-                                                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=1000';
-                                                    }}
-                                                    className="w-full h-full object-cover"
-                                                />
+                                            <div className="w-full h-full overflow-hidden rounded-[2rem] border border-gray-100 flex items-center justify-center bg-white">
+                                                {product.imageUrl ? (
+                                                    <img
+                                                        src={product.imageUrl}
+                                                        alt={product.name}
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).style.display = 'none';
+                                                            (e.target as HTMLImageElement).parentElement?.classList.add('bg-gray-100');
+                                                            const placeholder = document.createElement('div');
+                                                            placeholder.className = 'text-gray-300 font-bold text-lg';
+                                                            placeholder.innerText = 'התמונה לא זמינה';
+                                                            (e.target as HTMLImageElement).parentElement?.appendChild(placeholder);
+                                                        }}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full bg-gray-50 flex items-center justify-center">
+                                                        <span className="text-gray-300 font-bold text-lg">אין תמונה למוצר</span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="absolute bottom-0 left-0 bg-[#f9fafb] pt-2 pr-2 rounded-tr-[1.5rem]">
-                                                <div className={`px-5 py-2 rounded-xl text-lg font-bold text-white shadow-sm cursor-pointer transition-all hover:brightness-110 active:scale-95 ${isInterested ? getTagColor('הבעתי עניין') : getTagColor(product.status)}`}>
-                                                    {isInterested ? 'הבעתי עניין' : product.status}
+                                                <div className={`px-5 py-2 rounded-xl text-lg font-bold text-white shadow-sm cursor-pointer transition-all hover:brightness-110 active:scale-95 ${isInterested && !isOwner ? getTagColor('הבעתי עניין') : getTagColor(product.status)}`}>
+                                                    {isInterested && !isOwner ? 'הבעתי עניין' : product.status}
                                                 </div>
                                             </div>
 
@@ -274,6 +476,10 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                         <span className="text-gray-400 font-medium">מיקום :</span>
                                                         <span className="text-gray-700 font-bold">{product.location}</span>
                                                     </div>
+                                                    <div className="flex justify-between border-b border-gray-50 pb-2">
+                                                        <span className="text-gray-400 font-medium">כמות :</span>
+                                                        <span className="text-gray-700 font-bold">{product.quantity || 1}</span>
+                                                    </div>
                                                     <div className="flex justify-between border-b border-gray-50 pb-2 md:col-span-2">
                                                         <span className="text-gray-400 font-medium">תיעוד רכישה :</span>
                                                         <span className="text-gray-700 font-bold">{product.purchaseDocumentation || 'לא צוין'}</span>
@@ -282,24 +488,239 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                             </div>
                                         </div>
 
-                                        {/* FAQ Mockup */}
-                                        {product.faq && product.faq.length > 0 && (
-                                            <div className="space-y-4">
-                                                <h2 className="text-xl font-black text-gray-900">שאלות נפוצות :</h2>
-                                                {product.faq.map((item, idx) => (
-                                                    <div key={idx} className="space-y-2">
-                                                        <div className="text-gray-800 font-bold">
-                                                            {item.question}
-                                                        </div>
-                                                        {item.answer && (
-                                                            <div className="text-gray-600">
-                                                                {item.answer}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
+                                        {/* Q&A Section */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <MessageCircleQuestion className="w-6 h-6 text-[#418EAB]" />
+                                                <h2 className="text-xl font-black text-gray-900">שאלות ותשובות</h2>
+                                                {isOwner && unansweredQA.length > 0 && (
+                                                    <span className="bg-[#F39200] text-white text-xs font-bold px-2.5 py-1 rounded-full animate-pulse">
+                                                        {unansweredQA.length} שאלות ממתינות
+                                                    </span>
+                                                )}
                                             </div>
-                                        )}
+
+                                            {qaLoading ? (
+                                                <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex items-center justify-center">
+                                                    <div className="w-6 h-6 border-2 border-[#418EAB]/30 border-t-[#418EAB] rounded-full animate-spin" />
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {/* Owner: show unanswered questions first */}
+                                                    {isOwner && unansweredQA.length > 0 && (
+                                                        <div className="space-y-3">
+                                                            <h3 className="text-sm font-bold text-[#F39200] flex items-center gap-2">
+                                                                <Clock className="w-4 h-4" />
+                                                                שאלות ממתינות לתשובה
+                                                            </h3>
+                                                            {unansweredQA.map((qa) => (
+                                                                <motion.div
+                                                                    key={qa.id}
+                                                                    initial={{ opacity: 0, y: 8 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    className="bg-[#FFF8ED] rounded-2xl p-5 shadow-sm border-2 border-[#F39200]/20"
+                                                                >
+                                                                    <div className="flex items-start gap-3">
+                                                                        <div className="w-8 h-8 rounded-full bg-[#F39200]/10 text-[#F39200] flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5">
+                                                                            {qa.askerName?.charAt(0) || '?'}
+                                                                        </div>
+                                                                        <div className="flex-1">
+                                                                            <div className="flex items-center gap-2 mb-1 justify-between">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="font-bold text-gray-800 text-sm">{qa.askerName || 'משתמש'}</span>
+                                                                                    {qa.date && <span className="text-xs text-gray-400">{qa.date}</span>}
+                                                                                </div>
+                                                                                {isOwner && (
+                                                                                    <button
+                                                                                        onClick={() => handleDeleteQuestion(qa.id)}
+                                                                                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                                                                        title="מחק שאלה"
+                                                                                        disabled={deletingId === qa.id}
+                                                                                    >
+                                                                                        {deletingId === qa.id ? (
+                                                                                            <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
+                                                                                        ) : (
+                                                                                            <Trash2 className="w-4 h-4" />
+                                                                                        )}
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-gray-700 font-medium mb-3">{qa.question}</p>
+                                                                            <div className="flex gap-2">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={answerTexts[qa.id] || ''}
+                                                                                    onChange={(e) => setAnswerTexts(prev => ({ ...prev, [qa.id]: e.target.value }))}
+                                                                                    placeholder="כתוב תשובה..."
+                                                                                    className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#418EAB] focus:ring-2 focus:ring-[#418EAB]/20 transition-all"
+                                                                                    dir="rtl"
+                                                                                />
+                                                                                <button
+                                                                                    onClick={() => handleAnswerQuestion(qa.id)}
+                                                                                    disabled={!answerTexts[qa.id]?.trim() || answeringId === qa.id}
+                                                                                    className="bg-[#418EAB] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#316d82] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 flex-shrink-0"
+                                                                                >
+                                                                                    {answeringId === qa.id ? (
+                                                                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                                                    ) : (
+                                                                                        <Send className="w-4 h-4" />
+                                                                                    )}
+                                                                                    פרסם
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </motion.div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Published Q&A (visible to all) */}
+                                                    {publishedQA.length > 0 && (
+                                                        <div className="space-y-3">
+                                                            {isOwner && unansweredQA.length > 0 && (
+                                                                <h3 className="text-sm font-bold text-[#8DC63F] flex items-center gap-2 mt-4">
+                                                                    <CheckCircle2 className="w-4 h-4" />
+                                                                    שאלות שנענו
+                                                                </h3>
+                                                            )}
+                                                            {publishedQA.map((qa) => (
+                                                                <motion.div
+                                                                    key={qa.id}
+                                                                    initial={{ opacity: 0, y: 8 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+                                                                >
+                                                                    <button
+                                                                        onClick={() => toggleQAExpand(qa.id)}
+                                                                        className="w-full flex items-center justify-between p-5 text-right hover:bg-gray-50/50 transition-colors"
+                                                                    >
+                                                                        <div className="flex items-start gap-3 flex-1">
+                                                                            <div className="w-8 h-8 rounded-full bg-[#418EAB]/10 text-[#418EAB] flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5">
+                                                                                ש
+                                                                            </div>
+                                                                            <span className="font-bold text-gray-800 text-right">{qa.question}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {isOwner && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleDeleteQuestion(qa.id);
+                                                                                    }}
+                                                                                    className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                                                                                    title="מחק שאלה"
+                                                                                    disabled={deletingId === qa.id}
+                                                                                >
+                                                                                    {deletingId === qa.id ? (
+                                                                                        <div className="w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
+                                                                                    ) : (
+                                                                                        <Trash2 className="w-4 h-4" />
+                                                                                    )}
+                                                                                </button>
+                                                                            )}
+                                                                            {expandedQA.has(qa.id) ? (
+                                                                                <ChevronUp className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                                                            ) : (
+                                                                                <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                                                            )}
+                                                                        </div>
+                                                                    </button>
+                                                                    <AnimatePresence>
+                                                                        {expandedQA.has(qa.id) && (
+                                                                            <motion.div
+                                                                                initial={{ height: 0, opacity: 0 }}
+                                                                                animate={{ height: 'auto', opacity: 1 }}
+                                                                                exit={{ height: 0, opacity: 0 }}
+                                                                                transition={{ duration: 0.25 }}
+                                                                                className="overflow-hidden"
+                                                                            >
+                                                                                <div className="px-5 pb-5 pr-16">
+                                                                                    <div className="flex items-start gap-3">
+                                                                                        <div className="w-8 h-8 rounded-full bg-[#8DC63F]/10 text-[#8DC63F] flex items-center justify-center font-bold text-sm flex-shrink-0">
+                                                                                            ת
+                                                                                        </div>
+                                                                                        <p className="text-gray-600 leading-relaxed pt-1">{qa.answer}</p>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2 mt-2 mr-11">
+                                                                                        {qa.askerName && <span className="text-xs text-gray-400">נשאל ע"י {qa.askerName}</span>}
+                                                                                        {qa.date && <span className="text-xs text-gray-300">•</span>}
+                                                                                        {qa.date && <span className="text-xs text-gray-400">{qa.date}</span>}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </motion.div>
+                                                                        )}
+                                                                    </AnimatePresence>
+                                                                </motion.div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Empty state */}
+                                                    {publishedQA.length === 0 && (!isOwner || unansweredQA.length === 0) && (
+                                                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 text-center">
+                                                            <MessageCircleQuestion className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                                                            <p className="text-gray-400 font-medium">אין שאלות עדיין</p>
+                                                            <p className="text-gray-300 text-sm mt-1">היה הראשון לשאול שאלה על המוצר הזה</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Ask question form (visible to logged-in non-owners) */}
+                                                    {user && !isOwner && (
+                                                        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
+                                                            <h3 className="font-bold text-gray-800 mb-3 text-sm">יש לך שאלה?</h3>
+                                                            <div className="flex gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={newQuestion}
+                                                                    onChange={(e) => setNewQuestion(e.target.value)}
+                                                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAskQuestion(); } }}
+                                                                    placeholder="כתוב את שאלתך כאן..."
+                                                                    className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#418EAB] focus:ring-2 focus:ring-[#418EAB]/20 transition-all"
+                                                                    dir="rtl"
+                                                                    disabled={askingLoading}
+                                                                />
+                                                                <button
+                                                                    onClick={handleAskQuestion}
+                                                                    disabled={!newQuestion.trim() || askingLoading}
+                                                                    className="bg-[#F39200] text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-[#d98300] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 flex-shrink-0 shadow-[0_4px_12px_rgba(243,146,0,0.3)]"
+                                                                >
+                                                                    {askingLoading ? (
+                                                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        <Send className="w-4 h-4" />
+                                                                    )}
+                                                                    שלח שאלה
+                                                                </button>
+                                                            </div>
+                                                            <AnimatePresence>
+                                                                {askSuccess && (
+                                                                    <motion.div
+                                                                        initial={{ opacity: 0, y: -5 }}
+                                                                        animate={{ opacity: 1, y: 0 }}
+                                                                        exit={{ opacity: 0, y: -5 }}
+                                                                        className="mt-3 text-sm text-[#8DC63F] font-bold flex items-center gap-1"
+                                                                    >
+                                                                        <CheckCircle2 className="w-4 h-4" />
+                                                                        השאלה נשלחה בהצלחה! המוכר יענה בהקדם.
+                                                                    </motion.div>
+                                                                )}
+                                                            </AnimatePresence>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Prompt to login to ask */}
+                                                    {!user && (
+                                                        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 text-center mt-4">
+                                                            <p className="text-gray-500 text-sm">
+                                                                <button onClick={onLoginClick} className="text-[#418EAB] font-bold hover:underline">התחבר</button>
+                                                                {' '}כדי לשאול שאלה על המוצר
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                 </div>
@@ -329,6 +750,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                             }
                         }}
                         productName={product.name}
+                        maxQuantity={product.quantity}
                     />
 
                     {/* Success Overlays */}
