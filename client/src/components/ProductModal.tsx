@@ -5,6 +5,8 @@ import { getTagColor } from '../utils/theme';
 import { useInterestSubmission } from '../hooks/useInterestSubmission';
 import { useAuth } from '../hooks/useAuth';
 import InterestFormModal from './InterestFormModal';
+import InterestManagementList from './InterestManagementList';
+import { useProductInterests } from '../hooks/useProductInterests';
 import { API_URL } from '../config';
 
 import type { Product, QAItem } from '../types';
@@ -55,6 +57,9 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     const isOwner = !!(user?.id && product?.sellerId && user.id === product.sellerId);
     const isAdmin = true; // Simulated for now - all users are admins
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+    // Fetch rich interest details if owner
+    const { interests: detailedInterests, isLoading: isInterestsLoading, refetch: refetchInterests } = useProductInterests(product?.id, isOwner);
 
     const handleStatusUpdate = async (newStatus: string) => {
         if (!product || isUpdatingStatus) return;
@@ -412,6 +417,19 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                 </AnimatePresence>
                                             </button>
                                         )}
+
+                                        {/* Seller Interest Management List */}
+                                        {isOwner && product && (
+                                            <InterestManagementList
+                                                interests={detailedInterests}
+                                                product={product}
+                                                isLoading={isInterestsLoading}
+                                                onInterestRemoved={() => {
+                                                    refetchInterests();
+                                                }}
+                                            />
+                                        )}
+
                                     </div>
 
                                     {/* Right Side - Image and Details (Takes 8 cols) */}

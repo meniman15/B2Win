@@ -592,6 +592,116 @@ async function injectInterests(instances: any[]) {
     return instances;
 }
 
+export async function getProductInterests(productId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "interests",
+        return_groups: ["transaction_details", "interested_details"],
+        type: 2,
+        with_archive: 0,
+        filter: [
+            ["transaction_id.instance_id", "=", productId],
+            ["fld_3089", "!=", "true"]
+        ]
+    };
+
+    try {
+        console.log(`Fetching detailed interests for product: ${productId}`);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            console.error('Origami Fetch Interests Details Failed:', response.status, data);
+            return [];
+        }
+
+        const instances = data.data || [];
+        console.log('DEBUG: Origami Interests Instances:', JSON.stringify(instances, null, 2));
+
+        const uniqueInterestsMap = new Map();
+
+        instances.forEach((item: any) => {
+            const groups = item.instance_data.field_groups;
+
+            // Extract the user basic details
+            const userIdObj = getFieldValue(groups, 'interested_details', 'interested_id');
+            const fullName = getFieldValue(groups, 'interested_details', 'interested_full_name');
+            const phone = getFieldValue(groups, 'interested_details', 'interested_telephone');
+            const email = getFieldValue(groups, 'interested_details', 'interested_email');
+            const quantity = getFieldValue(groups, 'interested_details', 'desired_quantity');
+            // The interests entity might not correctly mirror the buyer's subOrg, we fetch from users below.
+            
+            const userId = typeof userIdObj === 'object' ? userIdObj?.instance_id : userIdObj;
+
+            if (userId && !uniqueInterestsMap.has(userId)) {
+                uniqueInterestsMap.set(userId, {
+                    id: item.instance_data._id,
+                    userId,
+                    userName: typeof userIdObj === 'object' ? userIdObj?.text : fullName || 'משתמש לא ידוע',
+                    phone: phone || '',
+                    email: email || '',
+                    quantity: quantity || 1,
+                    subOrg: '',
+                    organization: ''
+                });
+            }
+        });
+
+        const uniqueInterests = Array.from(uniqueInterestsMap.values());
+
+        // Fetch organization and sub-organization details natively from the users entity
+        await Promise.all(uniqueInterests.map(async (interest: any) => {
+            const userDetails = await getUserOrgDetails(interest.userId);
+            interest.organization = userDetails.organization;
+            interest.subOrg = userDetails.subOrg;
+        }));
+
+        return uniqueInterests;
+    } catch (error) {
+        console.error(`Error fetching detailed interests for ${productId}:`, error);
+        return [];
+    }
+}
+
+async function getUserOrgDetails(userId: string) {
+    if (!userId) return { organization: '', subOrg: '' };
+    try {
+        const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+        const body = {
+            username: ORIGAMI_USERNAME,
+            api_secret: ORIGAMI_SECRET,
+            entity_data_name: "users",
+            filter: [["_id", "=", userId]]
+        };
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data: any = await response.json();
+        
+        if (data && data.data && data.data.length > 0) {
+            const groups = data.data[0].instance_data.field_groups;
+            const orgValue = getFieldValue(groups, 'user_details', 'organization');
+            const subOrgValue = getFieldValue(groups, 'user_details', 'subOrganization');
+            
+            return {
+                organization: typeof orgValue === 'object' ? orgValue?.text : orgValue || '',
+                subOrg: typeof subOrgValue === 'object' ? subOrgValue?.text : subOrgValue || ''
+            };
+        }
+    } catch (e) {
+        console.error('Error fetching user org details for id:', userId, e);
+    }
+    return { organization: '', subOrg: '' };
+}
+
 function getFieldValue(groups: any[], groupDataName: string, fieldDataName: string) {
     const group = groups.find((g: any) => g.field_group_data.group_data_name === groupDataName);
     if (!group || !group.fields_data || group.fields_data.length === 0) return null;

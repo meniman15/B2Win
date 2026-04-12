@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { categories } from './data.js';
-import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus } from './origami.js';
+import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus, getProductInterests } from './origami.js';
 import multer from 'multer';
 
 dotenv.config();
@@ -388,6 +388,20 @@ app.patch('/api/products/:id/status', async (req, res) => {
     } catch (error: any) {
         console.error('Update product status error:', error);
         res.status(500).json({ error: error.message || 'Internal server error updating product status' });
+    }
+});
+
+app.get('/api/products/:id/interests', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ error: 'Product ID is required' });
+        }
+        const interests = await getProductInterests(id);
+        res.json(interests);
+    } catch (error: any) {
+        console.error('Fetch product interests error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching product interests' });
     }
 });
 

@@ -55,3 +55,14 @@ export interface User {
     }>;
     interestList?: string[];
 }
+
+export interface InterestDetail {
+    id: string;      // The interest record ID in Origami
+    userId: string;  // The user ID of the interested person
+    userName: string;
+    phone: string;
+    email?: string;
+    quantity: number;
+    subOrg?: string;
+    organization?: string;
+}
