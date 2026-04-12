@@ -8,7 +8,7 @@ export function useProductInterests(productId: string | undefined, isOwner: bool
     const [error, setError] = useState<string | null>(null);
 
     const fetchInterests = useCallback(async () => {
-        if (!productId || !isOwner) return;
+        if (!productId) return;
 
         setIsLoading(true);
         setError(null);

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Phone, Trash2, CheckCircle2, UserCircle2, MapPin } from 'lucide-react';
 import type { InterestDetail, Product } from '../types';
 import { useInterestSubmission } from '../hooks/useInterestSubmission';
+import HandoverModal from './HandoverModal';
+import { API_URL } from '../config';
 
 interface InterestManagementListProps {
     interests: InterestDetail[];
@@ -14,6 +16,7 @@ interface InterestManagementListProps {
 export default function InterestManagementList({ interests, product, onInterestRemoved, isLoading }: InterestManagementListProps) {
     const { cancelInterest } = useInterestSubmission();
     const [removingId, setRemovingId] = useState<string | null>(null);
+    const [selectedInterest, setSelectedInterest] = useState<InterestDetail | null>(null);
 
     const handleRemove = async (interest: InterestDetail) => {
         if (!window.confirm(`האם אתה בטוח שברצונך להסיר את ${interest.userName} מרשימת המתעניינים?`)) {
@@ -29,9 +32,37 @@ export default function InterestManagementList({ interests, product, onInterestR
     };
 
     const handleReportSale = (interest: InterestDetail) => {
-        // We will implement this part as a modal in the next step.
-        // For now, we'll just log it or alert
-        alert(`דיווח מכירה/מסירה ל- ${interest.userName} יפתח חלונית כאן.`);
+        setSelectedInterest(interest);
+    };
+
+    const handleReportSubmit = async (quantity: number, unitPrice: number, transferMethod: string) => {
+        if (!selectedInterest) return;
+
+        const response = await fetch(`${API_URL}/api/interests/${selectedInterest.id}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                quantity,
+                unitPrice,
+                transferMethod,
+                reporter: 'דיווח על ידי מוכר' 
+            })
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            let errorMessage = 'Failed to report sale';
+            try {
+                const data = JSON.parse(text);
+                errorMessage = data.error || errorMessage;
+            } catch (e) {
+                errorMessage = `Server Error (${response.status}): ${text.substring(0, 100)}`;
+            }
+            throw new Error(errorMessage);
+        }
+
+        // Trigger list refresh
+        onInterestRemoved();
     };
 
     if (isLoading) {
@@ -140,13 +171,23 @@ export default function InterestManagementList({ interests, product, onInterestR
                                     )}
 
                                     {/* Action 2: Report Sale */}
-                                    <button
-                                        onClick={() => handleReportSale(interest)}
-                                        className="bg-[#418EAB] text-white flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-[#316d82] active:scale-95 transition-all"
-                                    >
-                                        <CheckCircle2 className="w-4 h-4" />
-                                        {reportButtonText}
-                                    </button>
+                                    <div className="flex flex-col gap-1">
+                                        {interest.reporter && (
+                                            <div className="text-[10px] font-bold text-[#418EAB] bg-[#418EAB]/10 px-2 py-0.5 rounded-full self-start mb-1">
+                                                סטטוס: {interest.reporter}
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={() => handleReportSale(interest)}
+                                            className="w-full bg-[#418EAB] text-white flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-[#316d82] active:scale-95 transition-all"
+                                        >
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            {interest.status?.includes('מתעניין') || 
+                                             interest.status?.includes('קונה') ||
+                                             interest.reporter?.includes('מתעניין') ||
+                                             interest.reporter?.includes('קונה') ? 'אשר מכירה' : reportButtonText}
+                                        </button>
+                                    </div>
 
                                     {/* Action 3: Remove */}
                                     <button
@@ -167,6 +208,17 @@ export default function InterestManagementList({ interests, product, onInterestR
                     ))}
                 </AnimatePresence>
             </div>
+
+            {selectedInterest && (
+                <HandoverModal
+                    isOpen={!!selectedInterest}
+                    onClose={() => setSelectedInterest(null)}
+                    interest={selectedInterest}
+                    product={product}
+                    isOwner={true}
+                    onSubmit={handleReportSubmit}
+                />
+            )}
         </div>
     );
 }

@@ -406,7 +406,8 @@ export async function submitInterest(userData: any, transactionId: string, quant
         }
 
         console.log('Origami Interest Submission Success:', JSON.stringify(data));
-        return data.results || data;
+        // Return the created instance data which includes the _id
+        return data.instance || { _id: data.instance_id } || data;
     } catch (error) {
         console.error('Error submitting interest with Origami:', error);
         throw error;
@@ -619,14 +620,19 @@ export async function getProductInterests(productId: string) {
             body: JSON.stringify(body)
         });
 
-        const data = await response.json();
-        if (!response.ok || data.error) {
-            console.error('Origami Fetch Interests Details Failed:', response.status, data);
-            return [];
+        const text = await response.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (e) {
+            data = { error: text };
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error_message || data.error || `Origami error: ${response.statusText}`);
         }
 
         const instances = data.data || [];
-        console.log('DEBUG: Origami Interests Instances:', JSON.stringify(instances, null, 2));
 
         const uniqueInterestsMap = new Map();
 
@@ -639,9 +645,13 @@ export async function getProductInterests(productId: string) {
             const phone = getFieldValue(groups, 'interested_details', 'interested_telephone');
             const email = getFieldValue(groups, 'interested_details', 'interested_email');
             const quantity = getFieldValue(groups, 'interested_details', 'desired_quantity');
+            const statusStr = getFieldValue(groups, 'interested_details', 'fld_3074');
             // The interests entity might not correctly mirror the buyer's subOrg, we fetch from users below.
-            
+
             const userId = typeof userIdObj === 'object' ? userIdObj?.instance_id : userIdObj;
+
+            const reporterObj = getFieldValue(groups, 'g_504', 'fld_3353');
+            const reporter = typeof reporterObj === 'object' ? reporterObj?.text : reporterObj;
 
             if (userId && !uniqueInterestsMap.has(userId)) {
                 uniqueInterestsMap.set(userId, {
@@ -651,6 +661,8 @@ export async function getProductInterests(productId: string) {
                     phone: phone || '',
                     email: email || '',
                     quantity: quantity || 1,
+                    status: statusStr || '',
+                    reporter: reporter || '',
                     subOrg: '',
                     organization: ''
                 });
@@ -685,12 +697,12 @@ async function getUserOrgDetails(userId: string) {
         };
         const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data: any = await response.json();
-        
+
         if (data && data.data && data.data.length > 0) {
             const groups = data.data[0].instance_data.field_groups;
             const orgValue = getFieldValue(groups, 'user_details', 'organization');
             const subOrgValue = getFieldValue(groups, 'user_details', 'subOrganization');
-            
+
             return {
                 organization: typeof orgValue === 'object' ? orgValue?.text : orgValue || '',
                 subOrg: typeof subOrgValue === 'object' ? subOrgValue?.text : subOrgValue || ''
@@ -1752,6 +1764,78 @@ export async function updateProductStatus(productId: string, status: string) {
         return data.results || data;
     } catch (error) {
         console.error('Error updating product status in Origami:', error);
+        throw error;
+    }
+}
+
+export async function reportInterestSale(interestId: string, quantity: number, unitPrice: number, transferMethod: string, reporter: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    // Determine the correct status value based on the reporter
+    // Based on Origami possible values: ["ממתין", "במשא ומתן", "דווח מכירה על ידי מתעניין", "נסגר", "בוטל"]
+    let statusValue = "נסגר"; // Default for seller
+    if (reporter.includes('מתעניין') || reporter.includes('קונה')) {
+        statusValue = "דווח מכירה על ידי מתעניין";
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "interests",
+        filter: [["_id", "=", interestId]],
+        field: [
+            ["desired_quantity", quantity],
+            ["fld_3356", unitPrice],
+            ["fld_3361", transferMethod],
+            ["fld_3353", reporter],
+            ["fld_3074", statusValue]
+        ]
+    };
+
+    try {
+        console.log(`Reporting interest sale in Origami: ${interestId}`);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const text = await response.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (e) {
+            data = { error: text };
+        }
+
+        try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const logPath = '/Users/menigrossman/Projects/Be2Win/server/origami_debug.log';
+            const logEntry = `\n[${new Date().toISOString()}] REQUEST: ${JSON.stringify(body, null, 2)}\nRESPONSE: ${text}\n`;
+            fs.appendFileSync(logPath, logEntry);
+        } catch (logErr) {
+            console.error('Failed to write to debug log:', logErr);
+        }
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Report Interest Sale Failed:', response.status, errorMsg);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        console.log('Origami Report Interest Sale Success:', JSON.stringify(data));
+        return data.results || data;
+    } catch (error: any) {
+        const fs = await import('fs');
+        const logPath = '/Users/menigrossman/Projects/Be2Win/server/origami_debug.log';
+        const logMsg = `\n[${new Date().toISOString()}] REPORT ERROR: ${error.message}\nStack: ${error.stack}\n`;
+        try { fs.appendFileSync(logPath, logMsg); } catch (e) { }
+        console.error('Error reporting interest sale to Origami:', error);
         throw error;
     }
 }

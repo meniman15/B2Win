@@ -36,7 +36,7 @@ export function useInterestSubmission() {
             }
 
             setIsSuccess(true);
-            return true;
+            return await response.json();
         } catch (err: any) {
             setError(err.message || 'Failed to submit interest.');
             console.error('Submission error:', err);

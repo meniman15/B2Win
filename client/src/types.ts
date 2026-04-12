@@ -65,4 +65,6 @@ export interface InterestDetail {
     quantity: number;
     subOrg?: string;
     organization?: string;
+    status?: string;
+    reporter?: string;
 }

@@ -7,9 +7,10 @@ import { useAuth } from '../hooks/useAuth';
 import InterestFormModal from './InterestFormModal';
 import InterestManagementList from './InterestManagementList';
 import { useProductInterests } from '../hooks/useProductInterests';
+import HandoverModal from './HandoverModal';
 import { API_URL } from '../config';
 
-import type { Product, QAItem } from '../types';
+import type { Product, QAItem, InterestDetail } from '../types';
 
 interface ProductModalProps {
     product: Product | null;
@@ -57,9 +58,48 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     const isOwner = !!(user?.id && product?.sellerId && user.id === product.sellerId);
     const isAdmin = true; // Simulated for now - all users are admins
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
+    const [myInterestRecord, setMyInterestRecord] = useState<InterestDetail | null>(null);
 
-    // Fetch rich interest details if owner
+    // Fetch rich interest details
     const { interests: detailedInterests, isLoading: isInterestsLoading, refetch: refetchInterests } = useProductInterests(product?.id, isOwner);
+
+    // Filter out the current user's interest from the detailedInterests list
+    useEffect(() => {
+        if (detailedInterests && user?.id) {
+            const record = detailedInterests.find(i => i.userId === user.id);
+            if (record) setMyInterestRecord(record);
+        }
+    }, [detailedInterests, user?.id]);
+
+    const handleHandoverReportSubmit = async (quantity: number, unitPrice: number, transferMethod: string) => {
+        if (!myInterestRecord) return;
+
+        const response = await fetch(`${API_URL}/api/interests/${myInterestRecord.id}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                quantity,
+                unitPrice,
+                transferMethod,
+                reporter: 'דיווח על ידי מתעניין' 
+            })
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            let errorMessage = 'Failed to report purchase';
+            try {
+                const data = JSON.parse(text);
+                errorMessage = data.error || errorMessage;
+            } catch (e) {
+                errorMessage = `Server Error (${response.status}): ${text.substring(0, 100)}`;
+            }
+            throw new Error(errorMessage);
+        }
+
+        refetchInterests();
+    };
 
     const handleStatusUpdate = async (newStatus: string) => {
         if (!product || isUpdatingStatus) return;
@@ -418,6 +458,29 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                             </button>
                                         )}
 
+                                        {/* Buyer Handover Button */}
+                                        {isInterested && myInterestRecord && !isOwner && (
+                                        <button
+                                            onClick={() => setIsHandoverModalOpen(true)}
+                                            className="w-full mt-2 py-3 bg-[#418EAB] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#316d82] active:scale-95 transition-all shadow-sm"
+                                        >
+                                            <CheckCircle2 className="w-5 h-5" />
+                                            <span>דיווח רכישה</span>
+                                        </button>
+                                        )}
+
+                                        {/* Handover Modal for Buyer */}
+                                        {isHandoverModalOpen && myInterestRecord && product && (
+                                            <HandoverModal
+                                                isOpen={isHandoverModalOpen}
+                                                onClose={() => setIsHandoverModalOpen(false)}
+                                                interest={myInterestRecord}
+                                                product={product}
+                                                isOwner={false}
+                                                onSubmit={handleHandoverReportSubmit}
+                                            />
+                                        )}
+
                                         {/* Seller Interest Management List */}
                                         {isOwner && product && (
                                             <InterestManagementList
@@ -753,9 +816,24 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                         onClose={() => setIsInterestFormOpen(false)}
                         onSubmit={async (data) => {
                             if (product && user) {
-                                const success = await submitInterest(user, product.id, data);
-                                if (success) {
+                                const result = await submitInterest(user, product.id, data);
+                                if (result && (result._id || result.instance_id)) {
+                                    const newId = result._id || result.instance_id;
                                     setIsInterested(true);
+                                    
+                                    // Manually construct the new interest record for immediate UI feedback
+                                    setMyInterestRecord({
+                                        id: newId,
+                                        userId: user.id || '',
+                                        userName: `${user.firstName} ${user.lastName}`,
+                                        email: user.email || '',
+                                        phone: user.phone || '',
+                                        quantity: data.quantity,
+                                        status: 'ממתין',
+                                        organization: user.organization || '',
+                                        subOrg: user.subOrganization || ''
+                                    });
+
                                     if (user.interestList && !user.interestList.includes(product.id)) {
                                         user.interestList.push(product.id);
                                     } else if (!user.interestList) {
