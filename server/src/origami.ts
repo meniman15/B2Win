@@ -189,12 +189,15 @@ export async function authenticateUser(fullName: string, phone: string) {
                 // Non-blocking, continue with empty liked list
             }
 
+            const isAdminValue = getDetailsFieldValue('fld_3364');
+
             return {
                 id: instance._id,
                 firstName: userFirstName,
                 lastName: userLastName,
                 email: email,
                 phone: telephone,
+                isAdmin: isAdminValue === 1 || isAdminValue === '1' || isAdminValue === true,
                 organization: typeof orgValue === 'object' ? orgValue.text : (orgValue || 'B2Win'),
                 organizationId: typeof orgValue === 'object' ? orgValue.instance_id : null,
                 subOrganization: typeof subOrgValue === 'object' ? subOrgValue.text : subOrgValue,

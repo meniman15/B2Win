@@ -90,7 +90,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         const regData: any = {
             ...formData,
             organization: {instance_id: selectedOrg?.id, text: selectedOrg?.name},
-            fld_3364: 1,
+            isAdmin: formData.isAdmin ? 1 : 0,
             status:"פעיל"
         };
         if (subOrgs.length > 0 && selectedSubOrg) {
@@ -290,6 +290,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                                 <option key={typeof sub.id === 'object' ? sub.id : sub.id} value={typeof sub.id === 'object' ? sub.id : sub.id}>{sub.name}</option>
                                             ))}
                                         </select>
+                                    </div>
+                                    <div className="col-span-2 flex items-center gap-3 mt-2">
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.isAdmin}
+                                                onChange={(e) => setFormData({ ...formData, isAdmin: e.target.checked })}
+                                                className="w-5 h-5 rounded border-2 border-gray-300 text-[#F39200] focus:ring-[#F39200] accent-[#F39200] cursor-pointer"
+                                            />
+                                            <span className="text-base font-bold text-gray-700">מנהל יחידתי</span>
+                                        </label>
                                     </div>
                                     <div className="col-span-2 flex gap-4 mt-4">
                                         <button
