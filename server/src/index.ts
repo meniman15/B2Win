@@ -1,3 +1,4 @@
+import { updateInterestMessage } from './origami.js';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -419,6 +420,22 @@ app.get('/api/products/:id/interests', async (req, res) => {
     } catch (error: any) {
         console.error('Fetch product interests error:', error);
         res.status(500).json({ error: error.message || 'Internal server error fetching product interests' });
+    }
+});
+
+// Update message to buyer (fld_3301) for an interest
+app.patch('/api/interests/:id/message', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { message } = req.body;
+        if (!id || typeof message !== 'string') {
+            return res.status(400).json({ error: 'Interest ID and message are required' });
+        }
+        const result = await updateInterestMessage(id, message);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Update interest message error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error updating interest message' });
     }
 });
 

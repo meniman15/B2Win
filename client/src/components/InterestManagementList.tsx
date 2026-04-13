@@ -1,6 +1,7 @@
+import MessageModal from './MessageModal';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Phone, Trash2, CheckCircle2, UserCircle2, MapPin } from 'lucide-react';
+import { Mail, Phone, Trash2, CheckCircle2, UserCircle2 } from 'lucide-react';
 import type { InterestDetail, Product } from '../types';
 import { useInterestSubmission } from '../hooks/useInterestSubmission';
 import HandoverModal from './HandoverModal';
@@ -17,6 +18,27 @@ export default function InterestManagementList({ interests, product, onInterestR
     const { cancelInterest } = useInterestSubmission();
     const [removingId, setRemovingId] = useState<string | null>(null);
     const [selectedInterest, setSelectedInterest] = useState<InterestDetail | null>(null);
+    const [messageInterest, setMessageInterest] = useState<InterestDetail | null>(null);
+
+    // Send message to buyer (update Origami fld_301 via backend API)
+    const handleSendMessage = async (interest: InterestDetail, message: string) => {
+        const response = await fetch(`${API_URL}/api/interests/${interest.id}/message`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        if (!response.ok) {
+            const text = await response.text();
+            let errorMessage = 'Failed to send message';
+            try {
+                const data = JSON.parse(text);
+                errorMessage = data.error || errorMessage;
+            } catch (e) {
+                errorMessage = `Server Error (${response.status}): ${text.substring(0, 100)}`;
+            }
+            throw new Error(errorMessage);
+        }
+    };
 
     const handleRemove = async (interest: InterestDetail) => {
         if (!window.confirm(`האם אתה בטוח שברצונך להסיר את ${interest.userName} מרשימת המתעניינים?`)) {
@@ -45,7 +67,7 @@ export default function InterestManagementList({ interests, product, onInterestR
                 quantity,
                 unitPrice,
                 transferMethod,
-                reporter: 'דיווח על ידי מוכר' 
+                reporter: 'דיווח על ידי מוכר'
             })
         });
 
@@ -152,23 +174,14 @@ export default function InterestManagementList({ interests, product, onInterestR
 
                                 {/* Actions */}
                                 <div className="grid grid-cols-2 gap-2 mt-2 border-t border-gray-200/60 pt-3">
-                                    {/* Action 1: Send Message (Mailto or WA) */}
-                                    {interest.phone ? (
-                                        <a
-                                            href={`https://wa.me/972${interest.phone.replace(/^0/, '')}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="bg-[#25D366] text-white flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold shadow-sm hover:brightness-105 active:scale-95 transition-all"
-                                        >
-                                            <Phone className="w-4 h-4" />
-                                            שלח הודעה
-                                        </a>
-                                    ) : (
-                                        <button disabled className="bg-gray-200 text-gray-400 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold shadow-sm cursor-not-allowed">
-                                            <Mail className="w-4 h-4" />
-                                            אין פרטים
-                                        </button>
-                                    )}
+                                    {/* Action 1: Send Message Modal */}
+                                    <button
+                                        className="bg-[#18bb54] text-white flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-[#1DA851] active:scale-95 transition-all"
+                                        onClick={() => setMessageInterest(interest)}
+                                    >
+                                        <Mail className="w-4 h-4" />
+                                        שלח הודעה
+                                    </button>
 
                                     {/* Action 2: Report Sale */}
                                     <div className="flex flex-col gap-1">
@@ -182,10 +195,10 @@ export default function InterestManagementList({ interests, product, onInterestR
                                             className="w-full bg-[#418EAB] text-white flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-[#316d82] active:scale-95 transition-all"
                                         >
                                             <CheckCircle2 className="w-4 h-4" />
-                                            {interest.status?.includes('מתעניין') || 
-                                             interest.status?.includes('קונה') ||
-                                             interest.reporter?.includes('מתעניין') ||
-                                             interest.reporter?.includes('קונה') ? 'אשר מכירה' : reportButtonText}
+                                            {interest.status?.includes('מתעניין') ||
+                                                interest.status?.includes('קונה') ||
+                                                interest.reporter?.includes('מתעניין') ||
+                                                interest.reporter?.includes('קונה') ? 'אשר מכירה' : reportButtonText}
                                         </button>
                                     </div>
 
@@ -203,6 +216,18 @@ export default function InterestManagementList({ interests, product, onInterestR
                                         הסר מתעניין
                                     </button>
                                 </div>
+                                        {/* Message Modal */}
+                                        {messageInterest && (
+                                            <MessageModal
+                                                isOpen={!!messageInterest}
+                                                onClose={() => setMessageInterest(null)}
+                                                buyerName={messageInterest.userName || ''}
+                                                onSend={async (msg) => {
+                                                    await handleSendMessage(messageInterest, msg);
+                                                    setMessageInterest(null);
+                                                }}
+                                            />
+                                        )}
                             </div>
                         </motion.div>
                     ))}

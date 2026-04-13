@@ -22,20 +22,8 @@ interface ProductModalProps {
 
 export default function ProductModal({ product, isOpen, onClose, onLoginClick, onInterestChange }: ProductModalProps) {
     const [isInterestFormOpen, setIsInterestFormOpen] = useState(false);
-    const [isInterested, setIsInterested] = useState(false);
     const { user } = useAuth();
     const { submitInterest, cancelInterest, isLoading, isSuccess, isCancelled, reset } = useInterestSubmission();
-
-    // Initialize isInterested from product data
-    useEffect(() => {
-        if (product && user && isOpen) {
-            const userId = user.id || '';
-            const isInProductList = product.interestedUserIds?.includes(userId) || false;
-            // Check user list as well for immediate feedback reinforcement
-            const isInUserList = !!userId && user.interestList?.includes(product.id) || false;
-            setIsInterested(isInProductList || isInUserList);
-        }
-    }, [product, user, isOpen]);
 
     // Reset submission state when modal closes or product changes
     useEffect(() => {
@@ -67,8 +55,10 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     // Filter out the current user's interest from the detailedInterests list
     useEffect(() => {
         if (detailedInterests && user?.id) {
-            const record = detailedInterests.find(i => i.userId === user.id);
-            if (record) setMyInterestRecord(record);
+            const record = detailedInterests.find(i => i.userId === user.id) || null;
+            setMyInterestRecord(record);
+        } else {
+            setMyInterestRecord(null);
         }
     }, [detailedInterests, user?.id]);
 
@@ -98,7 +88,10 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
             throw new Error(errorMessage);
         }
 
-        refetchInterests();
+        // Await refetch to ensure UI updates with latest backend state
+        await refetchInterests();
+        // Close the handover modal after successful submission
+        setIsHandoverModalOpen(false);
     };
 
     const handleStatusUpdate = async (newStatus: string) => {
@@ -240,6 +233,13 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     const publishedQA = qaItems.filter(q => q.isPublished);
     const unansweredQA = qaItems.filter(q => !q.isPublished);
 
+    // Derive isInterested from up-to-date data
+    const isInterested = !!(user && product && (
+        product.interestedUserIds?.includes(user.id || '') ||
+        user.interestList?.includes(product.id) ||
+        myInterestRecord
+    ));
+
     const handleInterestClick = async () => {
         if (!user) {
             onLoginClick();
@@ -250,11 +250,13 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
             if (product && user) {
                 const success = await cancelInterest(product.id, user.id || '');
                 if (success) {
-                    setIsInterested(false);
                     if (user.interestList) {
                         user.interestList = user.interestList.filter(id => id !== product.id);
                     }
                     onInterestChange?.(product.id, false, user.id || '');
+                    // Optimistically clear myInterestRecord for instant UI feedback
+                    setMyInterestRecord(null);
+                    await refetchInterests();
                 }
             }
         } else {
@@ -335,7 +337,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                             ) : (
                                                                 <a
                                                                     href={`mailto:${product.sellerEmail}`}
-                                                                    className="w-full bg-[#F39200] text-white py-3.5 rounded-full font-bold shadow-md hover:bg-[#d98300] transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(243,146,0,0.3)]"
+                                                                    className="w-full bg-[#F39200] text-white py-3.5 pr-[10px] rounded-full font-bold shadow-md hover:bg-[#d98300] transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(243,146,0,0.3)]"
                                                                 >
                                                                     <Mail className="w-5 h-5" />
                                                                     שלח ל-{product.sellerEmail}
@@ -459,14 +461,23 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                         )}
 
                                         {/* Buyer Handover Button */}
-                                        {isInterested && myInterestRecord && !isOwner && (
-                                        <button
-                                            onClick={() => setIsHandoverModalOpen(true)}
-                                            className="w-full mt-2 py-3 bg-[#418EAB] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#316d82] active:scale-95 transition-all shadow-sm"
-                                        >
-                                            <CheckCircle2 className="w-5 h-5" />
-                                            <span>דיווח רכישה</span>
-                                        </button>
+                                        {isInterested && myInterestRecord && !isOwner && myInterestRecord.status !== 'דווח מכירה על ידי מתעניין' && (
+                                            <button
+                                                onClick={() => setIsHandoverModalOpen(true)}
+                                                className={`w-full mt-2 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm bg-[#418EAB] text-white hover:bg-[#316d82] active:scale-95`}
+                                            >
+                                                <CheckCircle2 className="w-5 h-5" />
+                                                <span>דיווח רכישה</span>
+                                            </button>
+                                        )}
+                                        {isInterested && myInterestRecord && !isOwner && myInterestRecord.status === 'דווח מכירה על ידי מתעניין' && (
+                                            <button
+                                                disabled
+                                                className="w-full mt-2 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm bg-gray-200 text-gray-500 cursor-not-allowed opacity-60"
+                                            >
+                                                <CheckCircle2 className="w-5 h-5" />
+                                                <span>דו"ח הרכישה כבר הוגש</span>
+                                            </button>
                                         )}
 
                                         {/* Handover Modal for Buyer */}
@@ -814,41 +825,32 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                         isOpen={isInterestFormOpen}
                         isLoading={isLoading}
                         onClose={() => setIsInterestFormOpen(false)}
+                        productName={product?.name || ''}
+                        maxQuantity={product?.quantity}
                         onSubmit={async (data) => {
-                            if (product && user) {
-                                const result = await submitInterest(user, product.id, data);
-                                if (result && (result._id || result.instance_id)) {
-                                    const newId = result._id || result.instance_id;
-                                    setIsInterested(true);
-                                    
-                                    // Manually construct the new interest record for immediate UI feedback
-                                    setMyInterestRecord({
-                                        id: newId,
-                                        userId: user.id || '',
-                                        userName: `${user.firstName} ${user.lastName}`,
-                                        email: user.email || '',
-                                        phone: user.phone || '',
-                                        quantity: data.quantity,
-                                        status: 'ממתין',
-                                        organization: user.organization || '',
-                                        subOrg: user.subOrganization || ''
-                                    });
-
-                                    if (user.interestList && !user.interestList.includes(product.id)) {
-                                        user.interestList.push(product.id);
-                                    } else if (!user.interestList) {
-                                        user.interestList = [product.id];
-                                    }
-                                    onInterestChange?.(product.id, true, user.id || '');
+                            if (product && user && user.id) {
+                                await submitInterest(user, product.id, data);
+                                // Optimistically set myInterestRecord for instant UI feedback (only required fields)
+                                setMyInterestRecord({
+                                    id: 'optimistic',
+                                    userId: user.id,
+                                    userName: user.firstName + (user.lastName ? ' ' + user.lastName : ''),
+                                    phone: user.phone || '',
+                                    status: '',
+                                    quantity: data.quantity,
+                                });
+                                refetchInterests();
+                                if (user.interestList && !user.interestList.includes(product.id)) {
+                                    user.interestList.push(product.id);
+                                } else if (!user.interestList) {
+                                    user.interestList = [product.id];
                                 }
+                                onInterestChange?.(product.id, true, user.id);
                             } else {
                                 alert('יש להתחבר כדי להגיש התעניינות');
                             }
                         }}
-                        productName={product.name}
-                        maxQuantity={product.quantity}
                     />
-
                     {/* Success Overlays */}
                     <AnimatePresence>
                         {isSuccess && (
