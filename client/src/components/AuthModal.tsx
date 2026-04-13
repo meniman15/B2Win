@@ -154,23 +154,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                             </div>
 
                             {error && (
-                                <div className="w-full p-4 mb-6 bg-red-50 text-red-600 rounded-xl text-center font-bold border border-red-100 italic text-sm" style={{ direction: 'rtl', whiteSpace: 'pre-line' }}>
-                                    {typeof error === 'object' && (error as any).type === 'validation' && Array.isArray((error as any).column) ? (
-                                        <>
-                                            <div>אירעה שגיאה ביצירת החשבון, נא לבדוק את השדות ולנסות שוב:</div>
-                                            <ul className="text-right mt-2">
-                                                {(error as any).column.map((col: any, idx: number) => (
-                                                    <li key={idx}>
-                                                        <b>{col.field_name}:</b> {col.message}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </>
-                                    ) : typeof error === 'object' ? (
-                                        JSON.stringify(error)
-                                    ) : (
-                                        error
-                                    )}
+                                <div className="w-full p-4 mb-6 bg-red-50 text-red-600 rounded-xl text-center font-bold border border-red-100 italic">
+                                    {error}
                                 </div>
                             )}
 
