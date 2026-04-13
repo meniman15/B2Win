@@ -95,10 +95,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 throw new Error(errorData.error || 'Registration failed');
             }
 
-            const result: User = await response.json();
+            const result = await response.json();
+            const user = {...result, organization: result.organization.text || '', subOrganization: result.subOrganization.text};
             console.log('Registration success, user created:', result);
 
-            setState({ user: result, isLoading: false, error: null });
+            setState({ user: user, isLoading: false, error: null });
             return true;
         } catch (err: any) {
             console.error('Registration error:', err);

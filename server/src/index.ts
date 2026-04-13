@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-import { categories } from './data.js';
+import { mockCategories } from './data.js';
 import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus, getProductInterests, reportInterestSale } from './origami.js';
 import multer from 'multer';
 
@@ -137,7 +137,7 @@ app.get('/api/categories', async (req, res) => {
     } catch (error: any) {
         console.error('Fetch categories error:', error);
         // Fallback to mock data if Origami fails, so the UI doesn't break
-        res.json(categories);
+        res.json(mockCategories);
     }
 });
 

@@ -21,7 +21,7 @@ export interface Category {
     icon: string;
 }
 
-export const categories: Category[] = [
+export const mockCategories: Category[] = [
     { id: '1', name: 'מחשבים', icon: 'Laptop' },
     { id: '2', name: 'תשתית מחשוב', icon: 'Network' },
     { id: '3', name: 'ריהוט משרדי', icon: 'Table' },
@@ -32,7 +32,7 @@ export const categories: Category[] = [
     { id: '8', name: 'ציוד היקפי', icon: 'Mouse' },
 ];
 
-export const products: Product[] = [
+export const mockProducts: Product[] = [
     {
         id: '69a4422397f56fc760066760',
         name: 'מחשב נייד',
