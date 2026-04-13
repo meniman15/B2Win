@@ -1,8 +1,17 @@
-import { useState } from 'react';
+
+
+import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Mail, Phone, Building } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { User as UserType } from '../types';
+
+// Move OrgOption interface to top-level scope
+interface OrgOption {
+    id: string;
+    name: string;
+}
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -12,6 +21,14 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const [view, setView] = useState<'login' | 'register'>('login');
     const { login, register, isLoading, error } = useAuth();
+
+    // Org and suborg state
+    const [orgs, setOrgs] = useState<OrgOption[]>([]);
+    const [subOrgs, setSubOrgs] = useState<OrgOption[]>([]);
+    const [selectedOrg, setSelectedOrg] = useState<OrgOption | null>(null);
+    const [selectedSubOrg, setSelectedSubOrg] = useState<OrgOption | null>(null);
+    const [orgsLoading, setOrgsLoading] = useState(false);
+    const [subOrgsLoading, setSubOrgsLoading] = useState(false);
 
     // Login fields
     const [fullName, setFullName] = useState('');
@@ -26,6 +43,39 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         organization: '',
         subOrganization: ''
     });
+   
+    // Fetch orgs on modal open
+    useEffect(() => {
+        if (isOpen) {
+            setOrgsLoading(true);
+            fetch(`${API_URL}/api/organizations`)
+                .then(res => res.json())
+                .then(data => {
+                    setOrgs(Array.isArray(data) ? data.map((o: any) => ({ id: o.instance_id, name: o.name })) : []);
+                })
+                .finally(() => setOrgsLoading(false));
+        }
+    }, [isOpen]);
+
+    // Fetch suborgs when org changes
+    useEffect(() => {
+        if (selectedOrg) {
+            setSubOrgsLoading(true);
+            const orgId = selectedOrg.id;
+            fetch(`${API_URL}/api/organizations/${orgId}/suborganizations`)
+                .then(res => res.json())
+                .then(data => {
+                    const suborgList = Array.isArray(data) ? data.map((o: any) => ({ id: o.instance_id, name: o.name })) : [];
+                    setSubOrgs(suborgList);
+                    // If no suborgs, clear selection
+                    if (suborgList.length === 0) setSelectedSubOrg(null);
+                })
+                .finally(() => setSubOrgsLoading(false));
+        } else {
+            setSubOrgs([]);
+            setSelectedSubOrg(null);
+        }
+    }, [selectedOrg]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,7 +85,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
-        const success = await register(formData);
+        // Only send suborg if available and selected
+        const regData: any = {
+            ...formData,
+            organization: {instance_id: selectedOrg?.id, text: selectedOrg?.name},
+            fld_3364: 1,
+            status:"פעיל"
+        };
+        if (subOrgs.length > 0 && selectedSubOrg) {
+            regData.subOrganization = {instance_id: selectedSubOrg.id, text: selectedSubOrg.name};
+        }
+        const success = await register(regData);
         if (success) onClose();
     };
 
@@ -94,8 +154,23 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                             </div>
 
                             {error && (
-                                <div className="w-full p-4 mb-6 bg-red-50 text-red-600 rounded-xl text-center font-bold border border-red-100 italic">
-                                    {error}
+                                <div className="w-full p-4 mb-6 bg-red-50 text-red-600 rounded-xl text-center font-bold border border-red-100 italic text-sm" style={{ direction: 'rtl', whiteSpace: 'pre-line' }}>
+                                    {typeof error === 'object' && (error as any).type === 'validation' && Array.isArray((error as any).column) ? (
+                                        <>
+                                            <div>אירעה שגיאה ביצירת החשבון, נא לבדוק את השדות ולנסות שוב:</div>
+                                            <ul className="text-right mt-2">
+                                                {(error as any).column.map((col: any, idx: number) => (
+                                                    <li key={idx}>
+                                                        <b>{col.field_name}:</b> {col.message}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </>
+                                    ) : typeof error === 'object' ? (
+                                        JSON.stringify(error)
+                                    ) : (
+                                        error
+                                    )}
                                 </div>
                             )}
 
@@ -188,23 +263,47 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                     </div>
                                     <div className="relative col-span-1">
                                         <Building className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="ארגון"
-                                            value={formData.organization}
-                                            onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                                            className="w-full h-12 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all"
+                                        <select
+                                            className="w-full h-12 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all bg-white"
+                                            value={selectedOrg && selectedOrg.id || ''}
+                                            onChange={e => {
+                                                const orgId = e.target.value;
+                                                const org = orgs.find(o => o.id === orgId) || null;
+                                                setSelectedOrg(org);
+                                                setSelectedSubOrg(null); // Reset suborg when org changes
+                                            }}
                                             required
-                                        />
+                                            disabled={orgsLoading}
+                                        >
+                                            <option value="" disabled>{orgsLoading ? 'טוען ארגונים...' : 'בחר ארגון'}</option>
+                                            {orgs.map(org => (
+                                                <option key={org.id} value={org.id}>{org.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div className="relative col-span-1">
-                                        <input
-                                            type="text"
-                                            placeholder="תת ארגון"
-                                            value={formData.subOrganization}
-                                            onChange={(e) => setFormData({ ...formData, subOrganization: e.target.value })}
-                                            className="w-full h-12 pr-4 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all"
-                                        />
+                                        <select
+                                            className="w-full h-12 pr-4 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all bg-white"
+                                            value={selectedSubOrg && selectedSubOrg && typeof selectedSubOrg.id === 'string' ? selectedSubOrg.id : ''}
+                                            onChange={e => {
+                                                const subId = e.target.value;
+                                                const sub = subOrgs.find(o => typeof o.id === 'object' ? o.id === subId : o.id === subId) || null;
+                                                setSelectedSubOrg(sub);
+                                            }}
+                                            disabled={!selectedOrg || subOrgsLoading || subOrgs.length === 0}
+                                            required={!!selectedOrg && subOrgs.length > 0}
+                                        >
+                                            {subOrgsLoading ? (
+                                                <option value="" disabled>טוען תתי-ארגונים...</option>
+                                            ) : subOrgs.length === 0 ? (
+                                                <option value="" disabled>אין תתי ארגונים</option>
+                                            ) : (
+                                                <option value="" disabled>בחר תת-ארגון</option>
+                                            )}
+                                            {subOrgs.map(sub => (
+                                                <option key={typeof sub.id === 'object' ? sub.id : sub.id} value={typeof sub.id === 'object' ? sub.id : sub.id}>{sub.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div className="col-span-2 flex gap-4 mt-4">
                                         <button
@@ -220,7 +319,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             className="flex-[2] h-12 bg-[#F39200] text-white rounded-xl font-black text-xl shadow-lg hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                                         >
                                             {isLoading && <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                            <span>{isLoading ? 'שומר...' : 'שמירה'}</span>
+                                            <span>{isLoading ? 'יוצר...' : 'צור חשבון'}</span>
                                         </button>
                                     </div>
                                 </form>

@@ -695,21 +695,23 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                                         </div>
                                                                         <div className="flex items-center gap-2">
                                                                             {isOwner && (
-                                                                                <button
-                                                                                    onClick={(e) => {
+                                                                                <span
+                                                                                    role="button"
+                                                                                    tabIndex={0}
+                                                                                    onClick={e => {
                                                                                         e.stopPropagation();
-                                                                                        handleDeleteQuestion(qa.id);
+                                                                                        if (!deletingId) handleDeleteQuestion(qa.id);
                                                                                     }}
-                                                                                    className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                                                                                    className={`text-gray-400 hover:text-red-500 transition-colors p-2 inline-flex items-center justify-center ${deletingId === qa.id ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
                                                                                     title="מחק שאלה"
-                                                                                    disabled={deletingId === qa.id}
+                                                                                    aria-disabled={deletingId === qa.id}
                                                                                 >
                                                                                     {deletingId === qa.id ? (
                                                                                         <div className="w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
                                                                                     ) : (
                                                                                         <Trash2 className="w-4 h-4" />
                                                                                     )}
-                                                                                </button>
+                                                                                </span>
                                                                             )}
                                                                             {expandedQA.has(qa.id) ? (
                                                                                 <ChevronUp className="w-5 h-5 text-gray-400 flex-shrink-0" />

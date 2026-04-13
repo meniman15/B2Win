@@ -255,16 +255,10 @@ export async function registerUser(userData: any) {
         const data = await response.json();
 
         if (!response.ok || data.error) {
-            const errorMsg = data.error_message || data.error || 'Unknown error';
-            if (response.status === 200) {
-                const errorMessage = errorMsg.message ? `${errorMsg.type} - ${errorMsg.message}` : errorMsg.type;
-                console.error('Origami Registration Failed:', errorMessage);
-                throw new Error(`Origami API error: ${errorMessage}`);
-            }
-            else {
-                console.error('Origami Registration Failed:', response.status, errorMsg, data);
-                throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
-            }
+            // Send the full error object (including column array) to the user
+            console.error('Origami Registration Failed:', data.error);
+            throw new Error(formatOrigamiError(data.error));
+            // Attach the error object for downstream error handling (e.g. in Express)
         }
 
         console.log('Origami Registration Success:', JSON.stringify(data));
@@ -287,6 +281,10 @@ export async function registerUser(userData: any) {
         };
     } catch (error) {
         console.error('Error registering with Origami:', error);
+        // If error has .origamiError, rethrow as is for Express error handler to send as JSON
+        if ((error as any).origamiError) {
+            throw error;
+        }
         throw error;
     }
 }
