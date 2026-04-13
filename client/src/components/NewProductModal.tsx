@@ -31,6 +31,8 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
     const [location, setLocation] = useState('');
     const [image, setImage] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [purchaseDocImage, setPurchaseDocImage] = useState<string | null>(null);
+    const [selectedPurchaseDocFile, setSelectedPurchaseDocFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -69,6 +71,18 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
             const reader = new FileReader();
             reader.onloadend = () => {
                 setImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handlePurchaseDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedPurchaseDocFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPurchaseDocImage(reader.result as string);
             };
             reader.readAsDataURL(file);
         }
@@ -115,15 +129,36 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                         if (errorData.error) {
                             errorMessage = `העלאת תמונה נכשלה: ${errorData.error}`;
                         }
-                    } catch (e) {
-                        // If JSON parsing fails, keep default error
-                    }
+                    } catch (e) {}
                     throw new Error(errorMessage);
                 }
 
                 const uploadData = await uploadResponse.json();
-                // Store the full metadata object returned by Origami
                 imageToSubmit = uploadData;
+            }
+
+            let purchaseDocToSubmit = null;
+            if (selectedPurchaseDocFile) {
+                const formData = new FormData();
+                formData.append('file', selectedPurchaseDocFile);
+
+                const uploadResponse = await fetch(`${API_URL}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    let errorMessage = 'אירעה שגיאה בהעלאת תיעוד הרכש לאוריגמי.';
+                    try {
+                        const errorData = await uploadResponse.json();
+                        if (errorData.error) {
+                            errorMessage = `העלאת תיעוד רכש נכשלה: ${errorData.error}`;
+                        }
+                    } catch (e) {}
+                    throw new Error(errorMessage);
+                }
+
+                purchaseDocToSubmit = await uploadResponse.json();
             }
 
             const response = await fetch(`${API_URL}/api/products`, {
@@ -140,7 +175,8 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                         price: type === 'מסירה' ? 0 : Number(price),
                         quantity: Number(quantity),
                         location,
-                        image: imageToSubmit
+                        image: imageToSubmit,
+                        purchaseDoc: purchaseDocToSubmit
                     },
                     userData: user
                 })
@@ -162,6 +198,8 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
             setLocation('');
             setImage(null);
             setSelectedFile(null);
+            setPurchaseDocImage(null);
+            setSelectedPurchaseDocFile(null);
         } catch (error: any) {
             console.error('Error creating product:', error);
             // Show the formatted message directly from the error
@@ -344,10 +382,10 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                                 </div>
 
                                 {/* Image Upload */}
-                                <div className="space-y-2 col-span-2">
+                                <div className="space-y-2 col-span-2 md:col-span-1">
                                     <label className="block text-lg font-bold text-gray-700">תמונת הפריט</label>
-                                    <div className="flex items-center gap-6">
-                                        <div className="relative w-32 h-32 rounded-3xl border-2 border-dashed border-gray-200 transition-all flex items-center justify-center overflow-hidden bg-gray-50 group">
+                                    <div className="flex flex-col gap-2">
+                                        <div className="relative w-full h-32 rounded-3xl border-2 border-dashed border-gray-200 transition-all flex items-center justify-center overflow-hidden bg-gray-50 group">
                                             {image ? (
                                                 <div className="relative w-full h-full">
                                                     <img src={image} alt="Preview" className="w-full h-full object-cover" />
@@ -357,6 +395,7 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                                                             e.preventDefault();
                                                             e.stopPropagation();
                                                             setImage(null);
+                                                            setSelectedFile(null);
                                                         }}
                                                         className="absolute top-2 left-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 z-10 scale-90 hover:scale-100"
                                                     >
@@ -370,9 +409,39 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                                                 </label>
                                             )}
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-gray-500 text-sm">העלה תמונה ברורה של הפריט כדי שמשתמשים אחרים יוכלו להתרשם.</p>
+                                        <p className="text-gray-500 text-xs">העלה תמונה ברורה של הפריט שמשתמשים אחרים יוכלו להתרשם ממנה</p>
+                                    </div>
+                                </div>
+
+                                {/* Purchase Doc Upload */}
+                                <div className="space-y-2 col-span-2 md:col-span-1">
+                                    <label className="block text-lg font-bold text-gray-700 mx-1">תיעוד רכש (אופציונלי)</label>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="relative w-full h-32 rounded-3xl border-2 border-dashed border-gray-200 transition-all flex items-center justify-center overflow-hidden bg-gray-50 group">
+                                            {purchaseDocImage ? (
+                                                <div className="relative w-full h-full">
+                                                    <img src={purchaseDocImage} alt="Purchase Doc Preview" className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            setPurchaseDocImage(null);
+                                                            setSelectedPurchaseDocFile(null);
+                                                        }}
+                                                        className="absolute top-2 left-2 p-1.5 bg-black/50 hover:bg-red-500 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 z-10 scale-90 hover:scale-100"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
+                                                    <Upload className="w-8 h-8 text-gray-300" />
+                                                    <input type="file" accept="image/*" className="hidden" onChange={handlePurchaseDocUpload} />
+                                                </label>
+                                            )}
                                         </div>
+                                        <p className="text-gray-500 text-xs">העלה תמונה של קבלה או מסמך שמוכיח את רכישת הפריט המקורי</p>
                                     </div>
                                 </div>
                             </div>

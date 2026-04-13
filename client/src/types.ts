@@ -13,6 +13,7 @@ export interface Product {
     manufacturer?: string;
     model?: string;
     purchaseDocumentation?: string;
+    purchaseDocUrl?: string;
     memberSince?: string;
     faq?: { question: string; answer?: string }[];
     interestedUserIds?: string[];

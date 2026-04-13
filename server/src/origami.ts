@@ -776,6 +776,7 @@ export function mapOrigamiProduct(raw: any) {
     const sellerIdObj = getFieldValue(groups, 'g_452', 'fld_3130');
     const logisticsComment = getFieldValue(groups, 'g_455', 'fld_3057');
     const imageObj = getFieldValue(groups, 'g_456', 'fld_3030');
+    const purchaseDocObj = getFieldValue(groups, 'g_451', 'fld_3357');
     const productQuantity = getFieldValue(groups, 'g_451', 'fld_3032');
 
     const faqRaw = getRepeatableFieldValues(groups, 'g_453', {
@@ -810,7 +811,8 @@ export function mapOrigamiProduct(raw: any) {
         description: displayDescription,
         manufacturer: subCategoryName || '-',
         model: '',
-        purchaseDocumentation: imageObj?.file_name || '',
+        purchaseDocumentation: purchaseDocObj?.file_name || '',
+        purchaseDocUrl: purchaseDocObj?.location || '',
         interestedUserIds: interestedUserIds,
         memberSince: instance.insertTimestamp ? new Date(instance.insertTimestamp).getFullYear().toString() : '2024',
         faq: faq,
@@ -1308,6 +1310,7 @@ export async function createProduct(productData: any, userData: any) {
                         fld_3099: { instance_id: locationId },
                         fld_3142: productData.name,
                         fld_3143: productData.description,
+                        fld_3357: productData.purchaseDoc || ""
                     }
                 ]
             },

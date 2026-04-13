@@ -590,7 +590,20 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                     </div>
                                                     <div className="flex justify-between border-b border-gray-50 pb-2 md:col-span-2">
                                                         <span className="text-gray-400 font-medium">תיעוד רכישה :</span>
-                                                        <span className="text-gray-700 font-bold">{product.purchaseDocumentation || 'לא צוין'}</span>
+                                                        <span className="text-gray-700 font-bold">
+                                                            {product.purchaseDocUrl ? (
+                                                                <a 
+                                                                    href={product.purchaseDocUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer" 
+                                                                    className="text-[#418EAB] hover:text-[#316d82] hover:underline transition-all"
+                                                                >
+                                                                    {product.purchaseDocumentation || 'צפייה בקובץ'}
+                                                                </a>
+                                                            ) : (
+                                                                product.purchaseDocumentation || 'לא צוין'
+                                                            )}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
