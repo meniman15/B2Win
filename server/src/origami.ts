@@ -234,7 +234,8 @@ export async function registerUser(userData: any) {
                         email: userData.email,
                         telephone: userData.phone,
                         organization: userData.organization,
-                        subOrganization: userData.subOrganization
+                        subOrganization: userData.subOrganization,
+                        fld_3364: userData.isAdmin
                     }
                 ]
             }

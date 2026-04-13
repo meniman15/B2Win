@@ -40,6 +40,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         lastName: '',
         email: '',
         phone: '',
+        isAdmin: false,
         organization: '',
         subOrganization: ''
     });

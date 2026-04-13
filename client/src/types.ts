@@ -47,6 +47,7 @@ export interface User {
     phone: string;
     organization: string;
     subOrganization?: string;
+    isAdmin: boolean;
     status?: string;
     origamiFields?: Array<{
         field_id: string;
