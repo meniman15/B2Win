@@ -55,6 +55,13 @@ function App() {
     setLastInterestChange({ productId, isInterested });
   };
 
+  // Clear stale product data when the user changes (login/logout)
+  useEffect(() => {
+    setProducts([]);
+    setSelectedProduct(null);
+    setIsModalOpen(false);
+  }, [user?.id]);
+
   useEffect(() => {
     setLoading(true);
     let url = `${API_URL}/api/products?`;
@@ -69,20 +76,12 @@ function App() {
           ? data.filter((p: Product) => p.sellerId !== user.id) 
           : data;
 
-        // Only show transition if the results have actually changed
-        const resultsChanged = JSON.stringify(filteredData) !== JSON.stringify(products);
-
-        if (resultsChanged) {
-          setIsTransitioning(true);
-          // Briefly fade out old results before showing new ones
-          setTimeout(() => {
-            setProducts(filteredData);
-            setIsTransitioning(false);
-            setLoading(false);
-          }, 100);
-        } else {
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setProducts(filteredData);
+          setIsTransitioning(false);
           setLoading(false);
-        }
+        }, 100);
       })
       .catch(err => {
         console.error('Error fetching products:', err);

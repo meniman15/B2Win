@@ -1,4 +1,4 @@
-import { User, Heart, LayoutList, Users, HelpCircle, FileText, ShieldCheck, LogOut } from 'lucide-react';
+import { User, Heart, LayoutList, HelpCircle, FileText, ShieldCheck, LogOut } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface PersonalSidebarProps {
@@ -13,8 +13,7 @@ export default function PersonalSidebar({ user, activeTab, onSelectTab }: Person
   const navItems = [
     { id: 'profile', label: 'פרופיל אישי', icon: User },
     { id: 'interested', label: 'מוצרים שהתעניינת בהם', icon: Heart },
-    { id: 'posted', label: 'מודעות שפרסמת', icon: LayoutList },
-    { id: 'queue', label: 'ניהול מתעניינים', icon: Users },
+    { id: 'posted', label: 'מודעות שפרסמת', icon: LayoutList }
   ];
 
   return (

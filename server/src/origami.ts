@@ -111,13 +111,14 @@ export async function authenticateUser(fullName: string, phone: string) {
             // Fetch user's active interests
             const userId = instance._id;
             const interestList: string[] = [];
+            const interestMap: { [productId: string]: { interestId: string, reported: boolean } } = {};
             try {
                 const interestsUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
                 const interestsBody = {
                     username: ORIGAMI_USERNAME,
                     api_secret: ORIGAMI_SECRET,
                     entity_data_name: "interests",
-                    return_groups: ["transaction_details"],
+                    return_groups: ["transaction_details", "interested_details"],
                     type: 2,
                     with_archive: 0,
                     filter: [
@@ -137,10 +138,18 @@ export async function authenticateUser(fullName: string, phone: string) {
                     const interestsItems = interestsData.data || [];
                     interestsItems.forEach((item: any) => {
                         const groups = item.instance_data.field_groups;
+                        const interestId = item.instance_data._id;
                         const transIdValue = getFieldValue(groups, 'transaction_details', 'transaction_id');
                         const transId = transIdValue?.instance_id || transIdValue;
+                        const status = getFieldValue(groups, 'interested_details', 'fld_3074') || '';
                         if (transId && !interestList.includes(transId)) {
                             interestList.push(transId);
+                        }
+                        if (transId && interestId) {
+                            interestMap[transId] = {
+                                interestId,
+                                reported: status === 'דווח מכירה על ידי מתעניין'
+                            };
                         }
                     });
                 }
@@ -205,6 +214,7 @@ export async function authenticateUser(fullName: string, phone: string) {
                 status: getDetailsFieldValue('status') || 'Active',
                 origamiFields: origamiFields,
                 interestList: interestList,
+                interestMap: interestMap,
                 likedList: likedList
             };
         }

@@ -55,6 +55,7 @@ export interface User {
         default_value?: any;
     }>;
     interestList?: string[];
+    interestMap?: { [productId: string]: { interestId: string, reported: boolean } };
 }
 
 export interface InterestDetail {

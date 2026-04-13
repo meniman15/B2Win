@@ -216,18 +216,18 @@ export default function InterestManagementList({ interests, product, onInterestR
                                         הסר מתעניין
                                     </button>
                                 </div>
-                                        {/* Message Modal */}
-                                        {messageInterest && (
-                                            <MessageModal
-                                                isOpen={!!messageInterest}
-                                                onClose={() => setMessageInterest(null)}
-                                                buyerName={messageInterest.userName || ''}
-                                                onSend={async (msg) => {
-                                                    await handleSendMessage(messageInterest, msg);
-                                                    setMessageInterest(null);
-                                                }}
-                                            />
-                                        )}
+                                {/* Message Modal */}
+                                {messageInterest && (
+                                    <MessageModal
+                                        isOpen={!!messageInterest}
+                                        onClose={() => setMessageInterest(null)}
+                                        buyerName={messageInterest.userName || ''}
+                                        onSend={async (msg) => {
+                                            await handleSendMessage(messageInterest, msg);
+                                            setMessageInterest(null);
+                                        }}
+                                    />
+                                )}
                             </div>
                         </motion.div>
                     ))}

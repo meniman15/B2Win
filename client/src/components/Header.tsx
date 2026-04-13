@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, User as UserIcon, Heart, LayoutGrid, PlusSquare, LogOut } from 'lucide-react';
+import { Search, User as UserIcon, Heart, LayoutGrid, LayoutList, PlusSquare, LogOut } from 'lucide-react';
 import { API_URL } from '../config';
 import bitwinLogo from '../assets/Bitwin_logo_final.png';
 import { useAuth } from '../hooks/useAuth';
@@ -152,6 +152,7 @@ export default function Header({ onSearch, onLoginClick, onProfileClick, onHomeC
                     )}
                     <button
                         className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"
+                        title="מוצרים שהתעניינת בהם"
                         onClick={() => {
                             if (user && onProfileClick) {
                                 onProfileClick('interested');
@@ -161,6 +162,19 @@ export default function Header({ onSearch, onLoginClick, onProfileClick, onHomeC
                         }}
                     >
                         <Heart className="w-6 h-6" />
+                    </button>
+                    <button
+                        className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"
+                        title="מודעות שפרסמת"
+                        onClick={() => {
+                            if (user && onProfileClick) {
+                                onProfileClick('posted');
+                            } else {
+                                onLoginClick();
+                            }
+                        }}
+                    >
+                        <LayoutList className="w-6 h-6" />
                     </button>
                     <button
                         className="p-2 text-[#1C4E80] hover:bg-gray-100 rounded-full transition-colors"

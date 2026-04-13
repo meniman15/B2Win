@@ -44,21 +44,37 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     const [expandedQA, setExpandedQA] = useState<Set<string>>(new Set());
 
     const isOwner = !!(user?.id && product?.sellerId && user.id === product.sellerId);
-    const isAdmin = true; // Simulated for now - all users are admins
+    const isAdmin = !!(user?.isAdmin);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
+    // Initialize myInterestRecord from cached interestMap for instant UI
+    const cachedInterest = product?.id && user?.interestMap?.[product.id];
     const [myInterestRecord, setMyInterestRecord] = useState<InterestDetail | null>(null);
+
+    // Seed from cache on mount / product change
+    useEffect(() => {
+        if (cachedInterest && user?.id) {
+            setMyInterestRecord({
+                id: cachedInterest.interestId,
+                userId: user.id,
+                userName: `${user.firstName} ${user.lastName || ''}`.trim(),
+                phone: user.phone || '',
+                quantity: 1,
+                status: cachedInterest.reported ? 'דווח מכירה על ידי מתעניין' : '',
+            });
+        }
+    }, [product?.id]);
 
     // Fetch rich interest details
     const { interests: detailedInterests, isLoading: isInterestsLoading, refetch: refetchInterests } = useProductInterests(product?.id, isOwner);
 
-    // Filter out the current user's interest from the detailedInterests list
+    // Upgrade myInterestRecord with full data from API when available
     useEffect(() => {
         if (detailedInterests && user?.id) {
             const record = detailedInterests.find(i => i.userId === user.id) || null;
-            setMyInterestRecord(record);
-        } else {
-            setMyInterestRecord(null);
+            if (record) {
+                setMyInterestRecord(record);
+            }
         }
     }, [detailedInterests, user?.id]);
 
@@ -413,8 +429,8 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                             </div>
                                         )}
 
-                                        {/* Interest Badge - Hidden for owner */}
-                                        {!isOwner && (
+                                        {/* Interest Badge - Hidden for owner and non-admin users */}
+                                        {!isOwner && isAdmin && (
                                             <button
                                                 onClick={handleInterestClick}
                                                 disabled={isLoading}
@@ -461,7 +477,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                         )}
 
                                         {/* Buyer Handover Button */}
-                                        {isInterested && myInterestRecord && !isOwner && myInterestRecord.status !== 'דווח מכירה על ידי מתעניין' && (
+                                        {isInterested && myInterestRecord && !isOwner && isAdmin && myInterestRecord.status !== 'דווח מכירה על ידי מתעניין' && (
                                             <button
                                                 onClick={() => setIsHandoverModalOpen(true)}
                                                 className={`w-full mt-2 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm bg-[#418EAB] text-white hover:bg-[#316d82] active:scale-95`}
@@ -470,7 +486,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                 <span>דיווח רכישה</span>
                                             </button>
                                         )}
-                                        {isInterested && myInterestRecord && !isOwner && myInterestRecord.status === 'דווח מכירה על ידי מתעניין' && (
+                                        {isInterested && myInterestRecord && !isOwner && isAdmin && myInterestRecord.status === 'דווח מכירה על ידי מתעניין' && (
                                             <button
                                                 disabled
                                                 className="w-full mt-2 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-sm bg-gray-200 text-gray-500 cursor-not-allowed opacity-60"
