@@ -27,6 +27,22 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [sortOption, setSortOption] = useState<string>('');
+
+  const getSortedProducts = (prods: Product[]) => {
+    if (!sortOption) return prods;
+    const sorted = [...prods];
+    if (sortOption === 'price_asc') {
+      sorted.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    } else if (sortOption === 'price_desc') {
+      sorted.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    } else if (sortOption === 'name_asc') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name, 'he'));
+    } else if (sortOption === 'name_desc') {
+      sorted.sort((a, b) => b.name.localeCompare(a.name, 'he'));
+    }
+    return sorted;
+  };
 
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
@@ -123,24 +139,22 @@ function App() {
           onSelectCategory={setSelectedCategory}
         />
 
-        {/* Filters Row */}
-        <div className="container mx-auto px-4 mb-4 flex items-center justify-center gap-3">
-          <button className="flex items-center gap-2 px-5 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-medium border border-gray-300">
-            <span className="text-xs text-[#00AEEF]">★</span>
-            כל הסינונים
-          </button>
-          <button className="flex items-center gap-2 px-5 py-1.5 bg-white hover:bg-gray-50 rounded-full text-sm border border-gray-300">
-            סוג עסקה ▾
-          </button>
-          <button className="flex items-center gap-2 px-5 py-1.5 bg-white hover:bg-gray-50 rounded-full text-sm border border-gray-300">
-            מחיר ▾
-          </button>
-          <button className="flex items-center gap-2 px-4 py-1.5 bg-white hover:bg-gray-50 rounded-full text-sm border border-gray-300">
-            מצב המוצר ▾
-          </button>
-          <button className="flex items-center gap-2 px-4 py-1.5 bg-white hover:bg-gray-50 rounded-full text-sm border border-gray-300">
-            יצרן ▾
-          </button>
+        {/* Sort & Filters Row */}
+        <div className="container mx-auto px-4 mt-6 mb-2 flex items-center justify-end gap-3 flex-wrap">
+          <div className="relative group">
+             <select 
+                className="flex items-center gap-2 px-6 py-2 bg-white hover:bg-gray-50 rounded-full text-sm border border-gray-300 outline-none cursor-pointer appearance-none text-right font-medium pr-4 pl-8 shadow-sm transition-colors"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+             >
+                <option value="">מיון: ברירת מחדל</option>
+                <option value="price_asc">מחיר: מהנמוך לגבוה</option>
+                <option value="price_desc">מחיר: מהגבוה לנמוך</option>
+                <option value="name_asc">שם: א׳-ת׳</option>
+                <option value="name_desc">שם: ת׳-א׳</option>
+             </select>
+             <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-[10px]">▼</div>
+          </div>
         </div>
 
         <div className="container mx-auto px-4 py-6">
@@ -176,7 +190,7 @@ function App() {
             ) : selectedCategory || searchQuery ? (
               /* Filtered Grid View */
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {products.map(product => (
+                {getSortedProducts(products).map(product => (
                   <ProductCard key={product.id} product={product} onClick={handleProductClick} />
                 ))}
               </div>
@@ -185,7 +199,7 @@ function App() {
               <div className="space-y-16">
                 {categories.length > 0 && categories.some(category => products.some(p => p.category === category.id)) ? (
                   categories.map(category => {
-                    const categoryProducts = products.filter(p => p.category === category.id).slice(0, 4);
+                    const categoryProducts = getSortedProducts(products.filter(p => p.category === category.id)).slice(0, 4);
                     if (categoryProducts.length === 0) return null;
 
                     return (
@@ -210,7 +224,7 @@ function App() {
                 ) : (
                   /* Fallback when categories don't match or are empty */
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {products.map(product => (
+                    {getSortedProducts(products).map(product => (
                       <ProductCard key={product.id} product={product} onClick={handleProductClick} />
                     ))}
                   </div>
