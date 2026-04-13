@@ -4,6 +4,13 @@ B2Win is a modern, high-fidelity internal marketplace designed for organizations
 
 ![Project Preview](https://raw.githubusercontent.com/meniman15/B2Win/main/client/src/assets/Bitwin_logo_final.png)
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="./client/src/assets/Screenshot%202026-04-13%20at%2017.17.46.png" width="45%" alt="Personal Page View" />
+  <img src="./client/src/assets/Screenshot%202026-04-13%20at%2017.18.07.png" width="45%" alt="Product Modal" />
+</p>
+
 ## ✨ Features
 
 - **🛍️ Product Discovery**: Browse products by category (Computers, Infrastructure, Furniture, etc.) with a clean, grid-based interface.
