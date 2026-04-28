@@ -32,25 +32,33 @@ export async function authenticateUser(fullName: string, phone: string) {
         throw new Error('Origami configuration is missing in .env');
     }
 
-    // Split full name into first and last name
+    // Split full name into first and last name and normalize
     const nameParts = fullName.trim().split(/\s+/);
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+    const firstName = (nameParts[0] || '').trim();
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ').trim() : '';
+
+    // Normalize phone number (strip non-digits for consistent matching)
+    const normalizedPhone = phone.replace(/\D/g, '');
 
     const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
 
     console.log(url);
+
+    const filter: any[] = [
+        ["first_name", "=", firstName],
+        ["telephone", "like", normalizedPhone]
+    ];
+
+    if (lastName) {
+        filter.push(["last_name", "=", lastName]);
+    }
 
     const body = {
         username: ORIGAMI_USERNAME,
         api_secret: ORIGAMI_SECRET,
         entity_data_name: "users",
         return_groups: "user_details",
-        filter: [
-            ["first_name", "=", firstName],
-            ["last_name", "=", lastName],
-            ["telephone", "=", phone]
-        ]
+        filter: filter
     };
     console.log(body);
     try {
@@ -242,10 +250,10 @@ export async function registerUser(userData: any) {
                 group_data_name: "user_details",
                 data: [
                     {
-                        first_name: userData.firstName,
-                        last_name: userData.lastName,
-                        email: userData.email,
-                        telephone: userData.phone,
+                        first_name: (userData.firstName || '').trim(),
+                        last_name: (userData.lastName || '').trim(),
+                        email: (userData.email || '').trim(),
+                        telephone: (userData.phone || '').replace(/\D/g, ''),
                         organization: userData.organization,
                         subOrganization: userData.subOrganization,
                         fld_3364: userData.isAdmin

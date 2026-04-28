@@ -170,6 +170,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
                                             className="w-full h-14 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all text-gray-800"
+                                            autoComplete="name"
                                             required
                                         />
                                     </div>
@@ -182,6 +183,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             onChange={(e) => setLoginPhone(e.target.value)}
                                             className="w-full h-14 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all"
                                             dir="rtl"
+                                            inputMode="tel"
+                                            autoComplete="tel"
                                             required
                                         />
                                     </div>
@@ -210,6 +213,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             value={formData.firstName}
                                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                                             className="w-full h-12 pr-4 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all"
+                                            autoComplete="given-name"
                                             required
                                         />
                                     </div>
@@ -220,6 +224,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             value={formData.lastName}
                                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                                             className="w-full h-12 pr-4 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all"
+                                            autoComplete="family-name"
                                             required
                                         />
                                     </div>
@@ -232,6 +237,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                             className="w-full h-12 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all text-left placeholder:text-right"
                                             dir="ltr"
+                                            autoComplete="email"
                                             required
                                         />
                                     </div>
@@ -244,6 +250,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                             className="w-full h-12 pr-12 rounded-xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-bold transition-all text-left placeholder:text-right"
                                             dir="ltr"
+                                            inputMode="tel"
+                                            autoComplete="tel"
                                             required
                                         />
                                     </div>
