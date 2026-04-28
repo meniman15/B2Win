@@ -85,8 +85,6 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
     const isAdmin = !!(user?.isAdmin);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
-    // Initialize myInterestRecord from cached interestMap for instant UI
-    const cachedInterest = product?.id && user?.interestMap?.[product.id];
     const [myInterestRecord, setMyInterestRecord] = useState<InterestDetail | null>(null);
 
     // ==================== Edit Mode State ====================
@@ -661,7 +659,7 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
                                             <div className="flex items-center justify-between">
                                                 <h2 className="text-xl font-black text-gray-900">על המוצר :</h2>
                                                 {isOwner && (
-                                                    <button 
+                                                    <button
                                                         onClick={() => setIsEditing(!isEditing)}
                                                         className="p-2 rounded-full hover:bg-gray-100 transition-colors text-[#418EAB]"
                                                         title={isEditing ? "בטל עריכה" : "ערוך פרטים"}
@@ -760,7 +758,7 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
                                                 {/* Edit Mode Actions */}
                                                 <AnimatePresence>
                                                     {isEditing && (
-                                                        <motion.div 
+                                                        <motion.div
                                                             initial={{ opacity: 0, height: 0 }}
                                                             animate={{ opacity: 1, height: 'auto' }}
                                                             exit={{ opacity: 0, height: 0 }}

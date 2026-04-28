@@ -21,12 +21,6 @@ export default function InterestFormModal({ isOpen, onClose, onSubmit, productNa
         onClose();
     };
 
-    const handleClose = () => {
-        setQuantity(1);
-        setMessage('');
-        onClose();
-    };
-
     return (
         <AnimatePresence>
             {isOpen && (
