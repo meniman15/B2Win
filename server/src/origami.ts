@@ -809,8 +809,9 @@ export function mapOrigamiProduct(raw: any) {
         sellerId: sellerIdObj?.instance_id || '',
         status: String(status || 'חדש'),
         description: displayDescription,
-        manufacturer: subCategoryName || '-',
-        model: '',
+        manufacturer: (typeof getFieldValue(groups, 'g_451', 'fld_3400') === 'object' ? getFieldValue(groups, 'g_451', 'fld_3400')?.text : getFieldValue(groups, 'g_451', 'fld_3400')) || '-',
+        model: (typeof getFieldValue(groups, 'g_451', 'fld_3399') === 'object' ? getFieldValue(groups, 'g_451', 'fld_3399')?.text : getFieldValue(groups, 'g_451', 'fld_3399')) || '-',
+        subCategoryName: subCategoryName,
         purchaseDocumentation: purchaseDocObj?.file_name || '',
         purchaseDocUrl: purchaseDocObj?.location || '',
         interestedUserIds: interestedUserIds,
@@ -1310,7 +1311,9 @@ export async function createProduct(productData: any, userData: any) {
                         fld_3099: { instance_id: locationId },
                         fld_3142: productData.name,
                         fld_3143: productData.description,
-                        fld_3357: productData.purchaseDoc || ""
+                        fld_3357: productData.purchaseDoc || "",
+                        fld_3399: productData.model || "",
+                        fld_3400: productData.manufacturer || ""
                     }
                 ]
             },

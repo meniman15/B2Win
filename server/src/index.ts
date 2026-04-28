@@ -248,9 +248,12 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
+        // Multer/busboy often parses filenames as latin1, decode to utf8 for Hebrew support
+        const originalname = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+
         const result = await uploadFileToOrigami(
             req.file.buffer,
-            req.file.originalname,
+            originalname,
             req.file.mimetype
         );
 

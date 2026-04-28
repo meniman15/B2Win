@@ -334,7 +334,13 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                 <div className="flex items-center gap-2 text-sm text-[#418EAB] font-medium mt-1">
                                                     <span>{product.location || '-'}</span>
                                                     <span>|</span>
-                                                    <span>{product.categoryName || product.category || 'מחשבים'}</span>
+                                                    <span>{product.categoryName || product.category || 'כללי'}</span>
+                                                    {product.subCategoryName && (
+                                                        <>
+                                                            <span>|</span>
+                                                            <span>{product.subCategoryName}</span>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -377,7 +383,11 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                     </div>
                                                 ) : (
                                                     <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl text-center">
-                                                        <p className="text-[#F39200] font-bold text-sm">הבע התעניינות במוצר כדי לחשוף את פרטי המוכר</p>
+                                                        <p className="text-[#F39200] font-bold text-sm">
+                                                            {isAdmin 
+                                                                ? "הבע התעניינות במוצר כדי לחשוף את פרטי המוכר" 
+                                                                : "במידה ואתה מעוניין בפריט זה, פנה למנהל הרכש היחידתי ופתח דרכו התעניינות"}
+                                                        </p>
                                                     </div>
                                                 )}
                                             </div>

@@ -33,6 +33,8 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [purchaseDocImage, setPurchaseDocImage] = useState<string | null>(null);
     const [selectedPurchaseDocFile, setSelectedPurchaseDocFile] = useState<File | null>(null);
+    const [manufacturer, setManufacturer] = useState('');
+    const [model, setModel] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -176,7 +178,9 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                         quantity: Number(quantity),
                         location,
                         image: imageToSubmit,
-                        purchaseDoc: purchaseDocToSubmit
+                        purchaseDoc: purchaseDocToSubmit,
+                        manufacturer,
+                        model
                     },
                     userData: user
                 })
@@ -200,6 +204,8 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
             setSelectedFile(null);
             setPurchaseDocImage(null);
             setSelectedPurchaseDocFile(null);
+            setManufacturer('');
+            setModel('');
         } catch (error: any) {
             console.error('Error creating product:', error);
             // Show the formatted message directly from the error
@@ -285,6 +291,30 @@ export default function NewProductModal({ isOpen, onClose }: NewProductModalProp
                                         ))}
                                     </select>
                                     {errors.subCategory && <span className="text-red-500 text-sm font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.subCategory}</span>}
+                                </div>
+
+                                {/* Manufacturer */}
+                                <div className="space-y-2">
+                                    <label className="block text-lg font-bold text-gray-700">יצרן (אופציונלי)</label>
+                                    <input
+                                        type="text"
+                                        value={manufacturer}
+                                        onChange={(e) => setManufacturer(e.target.value)}
+                                        placeholder="למשל: DELL, Apple, HP"
+                                        className="w-full h-14 px-6 rounded-2xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-medium transition-all"
+                                    />
+                                </div>
+
+                                {/* Model */}
+                                <div className="space-y-2">
+                                    <label className="block text-lg font-bold text-gray-700">דגם (אופציונלי)</label>
+                                    <input
+                                        type="text"
+                                        value={model}
+                                        onChange={(e) => setModel(e.target.value)}
+                                        placeholder="למשל: Latitude 5420, iPhone 13"
+                                        className="w-full h-14 px-6 rounded-2xl border-2 border-gray-100 focus:border-[#F39200] focus:outline-none text-lg font-medium transition-all"
+                                    />
                                 </div>
 
                                 {/* Type */}
