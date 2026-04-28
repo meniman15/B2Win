@@ -638,7 +638,7 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
                                                             placeholder.innerText = 'התמונה לא זמינה';
                                                             (e.target as HTMLImageElement).parentElement?.appendChild(placeholder);
                                                         }}
-                                                        className="w-full h-full object-cover"
+                                                        className="w-full h-full object-contain"
                                                     />
                                                 ) : (
                                                     <div className="w-full h-full bg-gray-50 flex items-center justify-center">
