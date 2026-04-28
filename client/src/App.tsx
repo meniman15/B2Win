@@ -135,7 +135,14 @@ function App() {
 
       <main className={`flex-grow transition-all duration-300 ${isModalOpen || isAuthModalOpen ? 'blur-md pointer-events-none' : ''}`}>
         {currentPage === 'profile' && user ? (
-          <PersonalPage user={user} initialTab={profileTab} onProductClick={handleProductClick} lastInterestChange={lastInterestChange} refreshKey={refreshKey} />
+          <PersonalPage 
+            user={user} 
+            activeTab={profileTab} 
+            onTabChange={(tab) => setProfileTab(tab as any)}
+            onProductClick={handleProductClick} 
+            lastInterestChange={lastInterestChange} 
+            refreshKey={refreshKey} 
+          />
         ) : (
           <>
             <CategoryNav

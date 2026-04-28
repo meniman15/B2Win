@@ -6,19 +6,14 @@ import PostedProducts from './PostedProducts';
 
 interface PersonalPageProps {
   user: any;
-  initialTab?: string;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
   onProductClick: (product: any) => void;
   lastInterestChange?: { productId: string; isInterested: boolean } | null;
   refreshKey?: number;
 }
 
-export default function PersonalPage({ user, initialTab = 'profile', onProductClick, lastInterestChange, refreshKey }: PersonalPageProps) {
-  const [activeTab, setActiveTab] = useState(initialTab);
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
-
+export default function PersonalPage({ user, activeTab, onTabChange, onProductClick, lastInterestChange, refreshKey }: PersonalPageProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'profile':
@@ -39,7 +34,7 @@ export default function PersonalPage({ user, initialTab = 'profile', onProductCl
         <PersonalSidebar
           user={user}
           activeTab={activeTab}
-          onSelectTab={setActiveTab}
+          onSelectTab={onTabChange}
         />
 
         {/* Main Content Area */}
