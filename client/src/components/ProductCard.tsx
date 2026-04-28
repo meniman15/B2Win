@@ -19,6 +19,7 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
     const isUserInterested = user && product.interestedUserIds?.includes(user.id || '');
     const isOwner = !!(user?.id && product?.sellerId && user.id === product.sellerId);
     const isAdmin = !!(user?.isAdmin);
+    const isSameSubOrg = !!(user?.subOrganizationId && product?.subOrganizationId && user.subOrganizationId === product.subOrganizationId);
     
     const [isLiked, setIsLiked] = useState(false);
 
@@ -66,43 +67,45 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
                 </div>
 
                 {/* TODO: save like selection and present as liked */}
-                <button
-                    onClick={async (e) => { 
-                        e.stopPropagation(); 
-                        if (!user) return;
-                        const newState = !isLiked;
-                        setIsLiked(newState);
-                        try {
-                            await fetch(`${API_URL}/api/products/like`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ fld_3140: user.id, fld_3139: product.id, fld_3138: newState })
-                            });
-                            
-                            if (user && (user as any).likedList && updateUser) {
-                                let newLikedList = [...(user as any).likedList];
-                                if (newState) {
-                                    if (!newLikedList.includes(product.id)) {
-                                        newLikedList.push(product.id);
+                {!isSameSubOrg && (
+                    <button
+                        onClick={async (e) => { 
+                            e.stopPropagation(); 
+                            if (!user) return;
+                            const newState = !isLiked;
+                            setIsLiked(newState);
+                            try {
+                                await fetch(`${API_URL}/api/products/like`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ fld_3140: user.id, fld_3139: product.id, fld_3138: newState })
+                                });
+                                
+                                if (user && (user as any).likedList && updateUser) {
+                                    let newLikedList = [...(user as any).likedList];
+                                    if (newState) {
+                                        if (!newLikedList.includes(product.id)) {
+                                            newLikedList.push(product.id);
+                                        }
+                                    } else {
+                                        newLikedList = newLikedList.filter((id: string) => id !== product.id);
                                     }
-                                } else {
-                                    newLikedList = newLikedList.filter((id: string) => id !== product.id);
+                                    updateUser({ likedList: newLikedList });
                                 }
-                                updateUser({ likedList: newLikedList });
-                            }
 
-                            if (onLikeToggle) {
-                                onLikeToggle(product.id, newState);
+                                if (onLikeToggle) {
+                                    onLikeToggle(product.id, newState);
+                                }
+                            } catch (err) {
+                                console.error('Failed to toggle like', err);
+                                setIsLiked(!newState);
                             }
-                        } catch (err) {
-                            console.error('Failed to toggle like', err);
-                            setIsLiked(!newState);
-                        }
-                    }}
-                    className={`absolute top-4 left-4 backdrop-blur-md p-2 rounded-full transition-colors border border-white/20 ${isLiked ? 'bg-white/90 text-red-500' : 'bg-white/20 text-white hover:text-red-500'}`}
-                >
-                    <Heart className="w-6 h-6 stroke-[2.5px]" fill={isLiked ? 'currentColor' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
-                </button>
+                        }}
+                        className={`absolute top-4 left-4 backdrop-blur-md p-2 rounded-full transition-colors border border-white/20 ${isLiked ? 'bg-white/90 text-red-500' : 'bg-white/20 text-white hover:text-red-500'}`}
+                    >
+                        <Heart className="w-6 h-6 stroke-[2.5px]" fill={isLiked ? 'currentColor' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
+                    </button>
+                )}
 
                 <div className="absolute bottom-0 left-0 bg-[#f9fafb] pt-2 pr-2 rounded-tr-[1.5rem]">
                     <div className={`px-5 py-2 rounded-xl text-lg font-bold text-white shadow-sm cursor-pointer transition-all hover:brightness-110 active:scale-95 ${isUserInterested ? getTagColor('הבעתי עניין') : getTagColor(product.status)}`}>
