@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { mockCategories } from './data.js';
-import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus, getProductInterests, reportInterestSale } from './origami.js';
+import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getProductsBySubOrg, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus, getProductInterests, reportInterestSale, getProductById } from './origami.js';
 import multer from 'multer';
 
 dotenv.config();
@@ -61,11 +61,20 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/products/posted', async (req, res) => {
     try {
-        const userId = req.body.userId || req.body.id;
-        if (!userId) {
+        const { userId, id, isAdmin, subOrganizationId } = req.body;
+        const targetUserId = userId || id;
+        if (!targetUserId) {
             return res.status(400).json({ error: 'User ID is required' });
         }
-        const rawProducts = await getProductsBySeller(userId);
+        
+        let rawProducts;
+        if (isAdmin && subOrganizationId) {
+            console.log(`Admin ${targetUserId} fetching products for subOrg ${subOrganizationId}`);
+            rawProducts = await getProductsBySubOrg(subOrganizationId);
+        } else {
+            rawProducts = await getProductsBySeller(targetUserId);
+        }
+        
         const mappedProducts = rawProducts.map(mapOrigamiProduct);
         res.json(mappedProducts);
     } catch (error: any) {
@@ -280,6 +289,20 @@ app.post('/api/products', async (req, res) => {
     }
 });
 
+app.get('/api/products/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const product = await getProductById(id);
+        if (!product) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+        res.json(product);
+    } catch (error: any) {
+        console.error('Fetch product by ID error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error fetching product' });
+    }
+});
+
 // ==================== Q&A Routes ====================
 
 app.get('/api/products/:id/questions', async (req, res) => {
@@ -383,11 +406,11 @@ app.post('/api/auth/login', async (req, res) => {
 app.patch('/api/products/:id/status', async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, adminId } = req.body;
         if (!id || !status) {
             return res.status(400).json({ error: 'Product ID and status are required' });
         }
-        const result = await updateProductStatus(id, status);
+        const result = await updateProductStatus(id, status, adminId);
         res.json(result);
     } catch (error: any) {
         console.error('Update product status error:', error);

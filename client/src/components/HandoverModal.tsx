@@ -20,7 +20,7 @@ export default function HandoverModal({
     isOwner,
     onSubmit
 }: HandoverModalProps) {
-    const defaultPrice = product.price || 0;
+    const defaultPrice = (interest.unitPrice !== undefined && interest.unitPrice !== null) ? interest.unitPrice : (product.price || 0);
     const defaultMaxQuantity = product.quantity || 1;
     const defaultQuantity = Math.min(interest.quantity || 1, defaultMaxQuantity);
 

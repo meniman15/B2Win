@@ -6,9 +6,10 @@ import ProductCard from '../ProductCard';
 interface PostedProductsProps {
   user: any;
   onProductClick: (product: Product) => void;
+  refreshKey?: number;
 }
 
-export default function PostedProducts({ user, onProductClick }: PostedProductsProps) {
+export default function PostedProducts({ user, onProductClick, refreshKey }: PostedProductsProps) {
   const [postedProducts, setPostedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +24,12 @@ export default function PostedProducts({ user, onProductClick }: PostedProductsP
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ id: user.id, userId: user.id })
+          body: JSON.stringify({ 
+            id: user.id, 
+            userId: user.id,
+            isAdmin: user.isAdmin,
+            subOrganizationId: user.subOrganizationId
+          })
         });
         
         if (!res.ok) throw new Error('Failed to fetch posted products');
@@ -40,7 +46,7 @@ export default function PostedProducts({ user, onProductClick }: PostedProductsP
     if (user?.id) {
       fetchPostedProducts();
     }
-  }, [user]);
+  }, [user, refreshKey]);
 
   return (
     <div className="p-8" dir="rtl">

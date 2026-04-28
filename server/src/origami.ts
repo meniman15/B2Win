@@ -142,7 +142,7 @@ export async function authenticateUser(fullName: string, phone: string) {
                         const transIdValue = getFieldValue(groups, 'transaction_details', 'transaction_id');
                         const transId = transIdValue?.instance_id || transIdValue;
                         const status = getFieldValue(groups, 'interested_details', 'fld_3074') || '';
-                        if (transId && !interestList.includes(transId)) {
+                        if (transId && status !== 'בוטל' && !interestList.includes(transId)) {
                             interestList.push(transId);
                         }
                         if (transId && interestId) {
@@ -544,6 +544,50 @@ export async function getProducts() {
         throw error;
     }
 }
+
+export async function getProductById(productId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_175",
+        return_groups: ["g_451", "g_452", "g_453", "g_455", "g_456"],
+        filter: [
+            ["_id", "=", productId]
+        ]
+    };
+
+    try {
+        console.log(`Fetching product ${productId} from Origami`);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            console.error('Origami Fetch Product By ID Failed:', response.status, errorMsg);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        const instances = data.data || [];
+        if (instances.length === 0) return null;
+
+        const processedInstances = await injectInterests(instances);
+        return mapOrigamiProduct(processedInstances[0]);
+    } catch (error) {
+        console.error('Error fetching product by ID from Origami:', error);
+        throw error;
+    }
+}
 async function injectInterests(instances: any[]) {
     if (!instances || instances.length === 0) return instances;
 
@@ -563,7 +607,7 @@ async function injectInterests(instances: any[]) {
             with_archive: 0,
             filter: [
                 ["fld_3089", "!=", "true"],
-                ["transaction_details.transaction_id.instance_id", "in", productIds]
+                ["transaction_id.instance_id", "in", productIds]
             ]
         };
 
@@ -582,12 +626,13 @@ async function injectInterests(instances: any[]) {
                 const transId = getFieldValue(groups, 'transaction_details', 'transaction_id')?.instance_id;
                 const userIdVal = getFieldValue(groups, 'interested_details', 'interested_id');
                 const userId = (userIdVal && typeof userIdVal === 'object') ? userIdVal.instance_id : userIdVal;
-
-                if (transId && userId) {
+                const status = getFieldValue(groups, 'interested_details', 'fld_3074') || '';
+                if (transId && userId && status !== 'בוטל') {
                     if (!interestMap[transId]) interestMap[transId] = [];
                     if (!interestMap[transId].includes(userId)) {
                         interestMap[transId].push(userId);
                     }
+                    console.log(`[DEBUG] Active Interest found: Product=${transId}, User=${userId}, Status=${status}`);
                 }
             });
         } catch (err) {
@@ -615,7 +660,7 @@ export async function getProductInterests(productId: string) {
         username: ORIGAMI_USERNAME,
         api_secret: ORIGAMI_SECRET,
         entity_data_name: "interests",
-        return_groups: ["transaction_details", "interested_details"],
+        return_groups: ["transaction_details", "interested_details", "g_504"],
         type: 2,
         with_archive: 0,
         filter: [
@@ -651,6 +696,16 @@ export async function getProductInterests(productId: string) {
         instances.forEach((item: any) => {
             const groups = item.instance_data.field_groups;
 
+            // Extra safety: Verify that this interest record actually belongs to the requested product
+            const transIdValue = getFieldValue(groups, 'transaction_details', 'transaction_id');
+            const transId = transIdValue?.instance_id || transIdValue;
+            const fld3040 = getFieldValue(groups, 'interested_details', 'fld_3040');
+            
+            if (transId !== productId && fld3040 !== productId) {
+                console.log(`[DEBUG] Skipping interest record ${item.instance_data._id} - product mismatch (Expected ${productId}, got transId=${transId}, fld3040=${fld3040})`);
+                return;
+            }
+
             // Extract the user basic details
             const userIdObj = getFieldValue(groups, 'interested_details', 'interested_id');
             const fullName = getFieldValue(groups, 'interested_details', 'interested_full_name');
@@ -664,6 +719,7 @@ export async function getProductInterests(productId: string) {
 
             const reporterObj = getFieldValue(groups, 'g_504', 'fld_3353');
             const reporter = typeof reporterObj === 'object' ? reporterObj?.text : reporterObj;
+            const unitPrice = getFieldValue(groups, 'g_504', 'fld_3356');
 
             if (userId && !uniqueInterestsMap.has(userId)) {
                 uniqueInterestsMap.set(userId, {
@@ -675,6 +731,7 @@ export async function getProductInterests(productId: string) {
                     quantity: quantity || 1,
                     status: statusStr || '',
                     reporter: reporter || '',
+                    unitPrice: unitPrice || 0,
                     subOrg: '',
                     organization: ''
                 });
@@ -775,6 +832,7 @@ export function mapOrigamiProduct(raw: any) {
     const sellerEmail = getFieldValue(groups, 'g_452', 'fld_3036');
     const sellerIdObj = getFieldValue(groups, 'g_452', 'fld_3130');
     const logisticsComment = getFieldValue(groups, 'g_455', 'fld_3057');
+    const subOrgIdObj = getFieldValue(groups, 'g_452', 'fld_3037');
     const imageObj = getFieldValue(groups, 'g_456', 'fld_3030');
     const purchaseDocObj = getFieldValue(groups, 'g_451', 'fld_3357');
     const productQuantity = getFieldValue(groups, 'g_451', 'fld_3032');
@@ -820,6 +878,7 @@ export function mapOrigamiProduct(raw: any) {
         sellerPhone: sellerPhone ? String(sellerPhone) : '',
         sellerEmail: sellerEmail ? String(sellerEmail) : '',
         quantity: productQuantity ? Number(productQuantity) : 1,
+        subOrganizationId: subOrgIdObj?.instance_id || '',
     };
 
     console.log('Mapped Product:', result.id, result.name, result.category, result.price);
@@ -962,6 +1021,50 @@ export async function getProductsBySeller(userId: string) {
         return await injectInterests(instances);
     } catch (error) {
         console.error('Error fetching posted products from Origami:', error);
+        throw error;
+    }
+}
+
+export async function getProductsBySubOrg(subOrgId: string) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_175",
+        return_groups: ["g_451", "g_452", "g_453", "g_455", "g_456"],
+        filter: [
+            ["fld_3037.instance_id", "=", subOrgId]
+        ]
+    };
+
+    try {
+        console.log('Fetching sub-org products from Origami for subOrgId:', subOrgId);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = data.error_message || data.error || 'Unknown error';
+            console.error('Origami Fetch SubOrg Products Failed:', response.status, errorMsg, data);
+            throw new Error(`Origami API error: ${response.status} - ${errorMsg}`);
+        }
+
+        let instances = data.data || [];
+        return await injectInterests(instances);
+    } catch (error) {
+        console.error('Error fetching sub-org products from Origami:', error);
         throw error;
     }
 }
@@ -1745,21 +1848,27 @@ export async function deleteQuestion(qaId: string) {
     }
 }
 
-export async function updateProductStatus(productId: string, status: string) {
+export async function updateProductStatus(productId: string, status: string, adminId?: string) {
     if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
         throw new Error('Origami configuration is missing in .env');
     }
 
     const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
 
+    const fieldsToUpdate: [string, any][] = [
+        ["fld_3038", status]
+    ];
+
+    if (adminId) {
+        fieldsToUpdate.push(["fld_3372", { instance_id: adminId }]);
+    }
+
     const body = {
         username: ORIGAMI_USERNAME,
         api_secret: ORIGAMI_SECRET,
         entity_data_name: "e_175",
         filter: [["_id", "=", productId]],
-        field: [
-            ["fld_3038", status]
-        ]
+        field: fieldsToUpdate
     };
 
     try {
@@ -1799,6 +1908,39 @@ export async function reportInterestSale(interestId: string, quantity: number, u
     }
 
     const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+
+    // 1. Get current interest and product data
+    let productId = '';
+    let currentProductQuantity = 0;
+    try {
+        const detailUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/instance_data/format/json`;
+        const detailRes = await fetch(detailUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: ORIGAMI_USERNAME,
+                api_secret: ORIGAMI_SECRET,
+                entity_data_name: "interests",
+                filter: [["_id", "=", interestId]],
+                return_groups: ["interested_details"]
+            })
+        });
+        const detailData = await detailRes.json();
+        if (detailData?.data?.[0]) {
+            const groups = detailData.data[0].instance_data.field_groups;
+            productId = getFieldValue(groups, 'interested_details', 'fld_3040');
+            
+            if (productId) {
+                // Fetch product current quantity
+                const product = await getProductById(productId);
+                if (product) {
+                    currentProductQuantity = product.quantity || 0;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error fetching interest/product for quantity update:', err);
+    }
 
     const body = {
         username: ORIGAMI_USERNAME,
@@ -1847,6 +1989,33 @@ export async function reportInterestSale(interestId: string, quantity: number, u
         }
 
         console.log('Origami Report Interest Sale Success:', JSON.stringify(data));
+
+        // 2. If it's a seller confirmation (statusValue === "נסגר") and we have product info
+        if (statusValue === "נסגר" && productId) {
+            try {
+                const newQuantity = Math.max(0, currentProductQuantity - quantity);
+                const updateUrl = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+                const updateBody = {
+                    username: ORIGAMI_USERNAME,
+                    api_secret: ORIGAMI_SECRET,
+                    entity_data_name: "e_175",
+                    filter: [["_id", "=", productId]],
+                    field: [
+                        ["fld_3032", String(newQuantity)]
+                    ]
+                };
+                
+                await fetch(updateUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateBody)
+                });
+                console.log(`Product ${productId} quantity updated: ${currentProductQuantity} -> ${newQuantity}`);
+            } catch (prodErr) {
+                console.error('Failed to update product quantity after sale:', prodErr);
+            }
+        }
+
         return data.results || data;
     } catch (error: any) {
         const fs = await import('fs');

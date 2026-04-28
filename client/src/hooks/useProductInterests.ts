@@ -27,6 +27,11 @@ export function useProductInterests(productId: string | undefined, isOwner: bool
         }
     }, [productId, isOwner]);
 
+    // Clear stale interests immediately when productId changes
+    useEffect(() => {
+        setInterests([]);
+    }, [productId]);
+
     useEffect(() => {
         fetchInterests();
     }, [fetchInterests]);

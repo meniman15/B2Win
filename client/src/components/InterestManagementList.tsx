@@ -11,10 +11,11 @@ interface InterestManagementListProps {
     interests: InterestDetail[];
     product: Product;
     onInterestRemoved: () => void;
+    onProductUpdate?: () => void;
     isLoading: boolean;
 }
 
-export default function InterestManagementList({ interests, product, onInterestRemoved, isLoading }: InterestManagementListProps) {
+export default function InterestManagementList({ interests, product, onInterestRemoved, onProductUpdate, isLoading }: InterestManagementListProps) {
     const { cancelInterest } = useInterestSubmission();
     const [removingId, setRemovingId] = useState<string | null>(null);
     const [selectedInterest, setSelectedInterest] = useState<InterestDetail | null>(null);
@@ -85,6 +86,7 @@ export default function InterestManagementList({ interests, product, onInterestR
 
         // Trigger list refresh
         onInterestRemoved();
+        onProductUpdate?.();
     };
 
     if (isLoading) {

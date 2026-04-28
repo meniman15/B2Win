@@ -16,6 +16,14 @@ export default function InterestFormModal({ isOpen, onClose, onSubmit, productNa
 
     const handleSubmit = () => {
         onSubmit({ quantity, message });
+        setQuantity(1);
+        setMessage('');
+        onClose();
+    };
+
+    const handleClose = () => {
+        setQuantity(1);
+        setMessage('');
         onClose();
     };
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { API_URL } from '../config';
 
 interface InterestSubmissionData {
@@ -12,7 +12,7 @@ export function useInterestSubmission() {
     const [isCancelled, setIsCancelled] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const submitInterest = async (userData: any, productId: string, data: InterestSubmissionData) => {
+    const submitInterest = useCallback(async (userData: any, productId: string, data: InterestSubmissionData) => {
         setIsLoading(true);
         setError(null);
         setIsSuccess(false);
@@ -44,9 +44,9 @@ export function useInterestSubmission() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const cancelInterest = async (transactionId: string, userId: string) => {
+    const cancelInterest = useCallback(async (transactionId: string, userId: string) => {
         setIsLoading(true);
         setError(null);
         setIsSuccess(false);
@@ -74,14 +74,14 @@ export function useInterestSubmission() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const reset = () => {
+    const reset = useCallback(() => {
         setIsSuccess(false);
         setIsCancelled(false);
         setError(null);
         setIsLoading(false);
-    };
+    }, []);
 
     return {
         submitInterest,

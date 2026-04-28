@@ -7,9 +7,10 @@ interface InterestedProductsProps {
   user: any;
   onProductClick: (product: Product) => void;
   lastInterestChange?: { productId: string; isInterested: boolean } | null;
+  refreshKey?: number;
 }
 
-export default function InterestedProducts({ user, onProductClick, lastInterestChange }: InterestedProductsProps) {
+export default function InterestedProducts({ user, onProductClick, lastInterestChange, refreshKey }: InterestedProductsProps) {
   const [desireProducts, setDesireProducts] = useState<Product[]>([]);
   const [lovedProducts, setLovedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +58,7 @@ export default function InterestedProducts({ user, onProductClick, lastInterestC
     if (user?.id) {
         fetchInterestedProducts();
     }
-  }, [user]);
+  }, [user, refreshKey]);
 
   // Handle interest changes from parent
   useEffect(() => {

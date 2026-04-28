@@ -15,15 +15,47 @@ import type { Product, QAItem, InterestDetail } from '../types';
 interface ProductModalProps {
     product: Product | null;
     isOpen: boolean;
-    onClose: () => void;
+    onClose: (hasChanged?: boolean) => void;
     onLoginClick: () => void;
     onInterestChange?: (productId: string, isInterested: boolean, userId: string) => void;
 }
 
-export default function ProductModal({ product, isOpen, onClose, onLoginClick, onInterestChange }: ProductModalProps) {
+export default function ProductModal({ product: initialProduct, isOpen, onClose, onLoginClick, onInterestChange }: ProductModalProps) {
+    const [product, setProduct] = useState<Product | null>(initialProduct);
+    const [hasChanged, setHasChanged] = useState(false);
+
+
     const [isInterestFormOpen, setIsInterestFormOpen] = useState(false);
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const { submitInterest, cancelInterest, isLoading, isSuccess, isCancelled, reset } = useInterestSubmission();
+
+    useEffect(() => {
+        setProduct(initialProduct);
+        // Immediate reset of dependent states to prevent leakage
+        setMyInterestRecord(null);
+        reset();
+
+        if (isOpen) {
+            setHasChanged(false);
+            if (initialProduct?.id) {
+                refetchProduct();
+                refetchInterests();
+            }
+        }
+    }, [initialProduct?.id, isOpen, reset]);
+
+    const refetchProduct = async () => {
+        if (!initialProduct?.id) return;
+        try {
+            const res = await fetch(`${API_URL}/api/products/${initialProduct.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setProduct(data);
+            }
+        } catch (error) {
+            console.error('Error refetching product:', error);
+        }
+    };
 
     // Reset submission state when modal closes or product changes
     useEffect(() => {
@@ -51,18 +83,9 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     const cachedInterest = product?.id && user?.interestMap?.[product.id];
     const [myInterestRecord, setMyInterestRecord] = useState<InterestDetail | null>(null);
 
-    // Seed from cache on mount / product change
+    // Removed seeding from local cache to prevent stale data display
     useEffect(() => {
-        if (cachedInterest && user?.id) {
-            setMyInterestRecord({
-                id: cachedInterest.interestId,
-                userId: user.id,
-                userName: `${user.firstName} ${user.lastName || ''}`.trim(),
-                phone: user.phone || '',
-                quantity: 1,
-                status: cachedInterest.reported ? 'דווח מכירה על ידי מתעניין' : '',
-            });
-        }
+        // We only use the API data now (refetchInterests)
     }, [product?.id]);
 
     // Fetch rich interest details
@@ -72,9 +95,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     useEffect(() => {
         if (detailedInterests && user?.id) {
             const record = detailedInterests.find(i => i.userId === user.id) || null;
-            if (record) {
-                setMyInterestRecord(record);
-            }
+            setMyInterestRecord(record);
         }
     }, [detailedInterests, user?.id]);
 
@@ -88,7 +109,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                 quantity,
                 unitPrice,
                 transferMethod,
-                reporter: 'דיווח על ידי מתעניין' 
+                reporter: 'דיווח על ידי מתעניין'
             })
         });
 
@@ -106,6 +127,8 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
 
         // Await refetch to ensure UI updates with latest backend state
         await refetchInterests();
+        await refetchProduct();
+        setHasChanged(true);
         // Close the handover modal after successful submission
         setIsHandoverModalOpen(false);
     };
@@ -117,13 +140,17 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
             const response = await fetch(`${API_URL}/api/products/${product.id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({
+                    status: newStatus,
+                    adminId: user?.id
+                })
             });
 
             if (response.ok) {
+                setHasChanged(true);
                 // Close and reload to show new status
                 setTimeout(() => {
-                    onClose();
+                    onClose(true);
                     window.location.reload();
                 }, 500);
             } else {
@@ -252,7 +279,6 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
     // Derive isInterested from up-to-date data
     const isInterested = !!(user && product && (
         product.interestedUserIds?.includes(user.id || '') ||
-        user.interestList?.includes(product.id) ||
         myInterestRecord
     ));
 
@@ -266,18 +292,29 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
             if (product && user) {
                 const success = await cancelInterest(product.id, user.id || '');
                 if (success) {
-                    if (user.interestList) {
-                        user.interestList = user.interestList.filter(id => id !== product.id);
+                    if (user.interestList && updateUser) {
+                        const newInterestList = user.interestList.filter(id => id !== product.id);
+                        const newInterestMap = { ...user.interestMap };
+                        delete newInterestMap[product.id];
+                        updateUser({
+                            interestList: newInterestList,
+                            interestMap: newInterestMap
+                        });
                     }
                     onInterestChange?.(product.id, false, user.id || '');
                     // Optimistically clear myInterestRecord for instant UI feedback
                     setMyInterestRecord(null);
+                    setHasChanged(true);
                     await refetchInterests();
                 }
             }
         } else {
             setIsInterestFormOpen(true);
         }
+    };
+
+    const handleInternalClose = () => {
+        onClose(hasChanged);
     };
 
     if (!product) return null;
@@ -291,7 +328,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={onClose}
+                        onClick={handleInternalClose}
                         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
                     />
 
@@ -306,7 +343,7 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                         {/* Header / Back Navigation */}
                         <div className="bg-white px-8 py-4 flex items-center justify-between border-b border-gray-100">
                             <button
-                                onClick={onClose}
+                                onClick={handleInternalClose}
                                 className="flex items-center gap-2 text-[#418EAB] font-bold hover:text-[#316d82] transition-colors"
                             >
                                 <ArrowRight className="w-5 h-5" />
@@ -384,8 +421,8 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                 ) : (
                                                     <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl text-center">
                                                         <p className="text-[#F39200] font-bold text-sm">
-                                                            {isAdmin 
-                                                                ? "הבע התעניינות במוצר כדי לחשוף את פרטי המוכר" 
+                                                            {isAdmin
+                                                                ? "הבע התעניינות במוצר כדי לחשוף את פרטי המוכר"
                                                                 : "במידה ואתה מעוניין בפריט זה, פנה למנהל הרכש היחידתי ופתח דרכו התעניינות"}
                                                         </p>
                                                     </div>
@@ -405,8 +442,8 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                             </div>
                                         </div>
 
-                                        {/* Admin Actions - For owner (simulated admin) */}
-                                        {isOwner && isAdmin && product.status === 'ממתין לאישור' && (
+                                        {/* Admin Actions - For any admin in the same sub-organization */}
+                                        {isAdmin && product.subOrganizationId === user?.subOrganizationId && product.status === 'ממתין לאישור' && (
                                             <div className="flex flex-col gap-3">
                                                 <button
                                                     onClick={() => handleStatusUpdate('חדש')}
@@ -439,8 +476,8 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                             </div>
                                         )}
 
-                                        {/* Interest Badge - Hidden for owner and non-admin users */}
-                                        {!isOwner && isAdmin && (
+                                        {/* Interest Badge - Hidden for owner, non-admin users, and admins of the same sub-org */}
+                                        {!isOwner && isAdmin && product.subOrganizationId !== user?.subOrganizationId && (
                                             <button
                                                 onClick={handleInterestClick}
                                                 disabled={isLoading}
@@ -510,7 +547,9 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                         {isHandoverModalOpen && myInterestRecord && product && (
                                             <HandoverModal
                                                 isOpen={isHandoverModalOpen}
-                                                onClose={() => setIsHandoverModalOpen(false)}
+                                                onClose={() => {
+                                                    setIsHandoverModalOpen(false);
+                                                }}
                                                 interest={myInterestRecord}
                                                 product={product}
                                                 isOwner={false}
@@ -526,6 +565,11 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                 isLoading={isInterestsLoading}
                                                 onInterestRemoved={() => {
                                                     refetchInterests();
+                                                    setHasChanged(true);
+                                                }}
+                                                onProductUpdate={() => {
+                                                    refetchProduct();
+                                                    setHasChanged(true);
                                                 }}
                                             />
                                         )}
@@ -602,10 +646,10 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                                         <span className="text-gray-400 font-medium">תיעוד רכישה :</span>
                                                         <span className="text-gray-700 font-bold">
                                                             {product.purchaseDocUrl ? (
-                                                                <a 
-                                                                    href={product.purchaseDocUrl} 
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer" 
+                                                                <a
+                                                                    href={product.purchaseDocUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
                                                                     className="text-[#418EAB] hover:text-[#316d82] hover:underline transition-all"
                                                                 >
                                                                     {product.purchaseDocumentation || 'צפייה בקובץ'}
@@ -881,10 +925,12 @@ export default function ProductModal({ product, isOpen, onClose, onLoginClick, o
                                     quantity: data.quantity,
                                 });
                                 refetchInterests();
-                                if (user.interestList && !user.interestList.includes(product.id)) {
-                                    user.interestList.push(product.id);
-                                } else if (!user.interestList) {
-                                    user.interestList = [product.id];
+                                if (updateUser) {
+                                    const newInterestList = user.interestList ? [...user.interestList] : [];
+                                    if (!newInterestList.includes(product.id)) {
+                                        newInterestList.push(product.id);
+                                    }
+                                    updateUser({ interestList: newInterestList });
                                 }
                                 onInterestChange?.(product.id, true, user.id);
                             } else {

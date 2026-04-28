@@ -21,6 +21,7 @@ export interface Product {
     sellerPhone?: string;
     sellerEmail?: string;
     quantity?: number;
+    subOrganizationId?: string;
 }
 
 export interface QAItem {
@@ -48,7 +49,9 @@ export interface User {
     email: string;
     phone: string;
     organization: string;
+    organizationId?: string;
     subOrganization?: string;
+    subOrganizationId?: string;
     isAdmin: boolean;
     status?: string;
     origamiFields?: Array<{
@@ -71,4 +74,5 @@ export interface InterestDetail {
     organization?: string;
     status?: string;
     reporter?: string;
+    unitPrice?: number;
 }

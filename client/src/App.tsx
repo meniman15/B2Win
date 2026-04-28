@@ -22,6 +22,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [lastInterestChange, setLastInterestChange] = useState<{ productId: string; isInterested: boolean } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Modal State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -78,18 +79,18 @@ function App() {
     setIsModalOpen(false);
   }, [user?.id]);
 
-  useEffect(() => {
+  const fetchProducts = () => {
     setLoading(true);
-    let url = `${API_URL}/api/products?`;
-    if (selectedCategory) url += `category=${selectedCategory}&`;
-    if (searchQuery) url += `q=${encodeURIComponent(searchQuery)}&`;
+    let url = `${API_URL}/api/products?t=${Date.now()}`;
+    if (selectedCategory) url += `&category=${selectedCategory}`;
+    if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
 
     fetch(url)
       .then(res => res.json())
       .then(data => {
         // Filter out my own products from the general list
         const filteredData = user?.id 
-          ? data.filter((p: Product) => p.sellerId !== user.id) 
+          ? data.filter((p: Product) => p.sellerId !== user.id && p.subOrganizationId !== user.subOrganizationId) 
           : data;
 
         setIsTransitioning(true);
@@ -103,6 +104,10 @@ function App() {
         console.error('Error fetching products:', err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchProducts();
   }, [selectedCategory, searchQuery, user?.id]);
 
   return (
@@ -130,7 +135,7 @@ function App() {
 
       <main className={`flex-grow transition-all duration-300 ${isModalOpen || isAuthModalOpen ? 'blur-md pointer-events-none' : ''}`}>
         {currentPage === 'profile' && user ? (
-          <PersonalPage user={user} initialTab={profileTab} onProductClick={handleProductClick} lastInterestChange={lastInterestChange} />
+          <PersonalPage user={user} initialTab={profileTab} onProductClick={handleProductClick} lastInterestChange={lastInterestChange} refreshKey={refreshKey} />
         ) : (
           <>
             <CategoryNav
@@ -238,9 +243,16 @@ function App() {
       </main>
 
       <ProductModal
+        key={selectedProduct?.id || 'none'}
         product={selectedProduct}
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={(hasChanged) => {
+          setIsModalOpen(false);
+          if (hasChanged) {
+            fetchProducts();
+            setRefreshKey(prev => prev + 1);
+          }
+        }}
         onLoginClick={() => setIsAuthModalOpen(true)}
         onInterestChange={handleInterestChange}
       />
