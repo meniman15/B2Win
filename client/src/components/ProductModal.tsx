@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowRight, Phone, Mail, MessageCircleQuestion, Send, ChevronDown, ChevronUp, Clock, CheckCircle2, Trash2 } from 'lucide-react';
+import { ArrowRight, Phone, Mail, MessageCircleQuestion, Send, ChevronDown, ChevronUp, Clock, CheckCircle2, Trash2, Pencil, Save, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTagColor } from '../utils/theme';
 import { useInterestSubmission } from '../hooks/useInterestSubmission';
@@ -51,6 +51,12 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
             if (res.ok) {
                 const data = await res.json();
                 setProduct(data);
+                setEditData({
+                    description: data.description || '',
+                    manufacturer: data.manufacturer || '',
+                    model: data.model || '',
+                    quantity: data.quantity || 1
+                });
             }
         } catch (error) {
             console.error('Error refetching product:', error);
@@ -82,6 +88,47 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
     // Initialize myInterestRecord from cached interestMap for instant UI
     const cachedInterest = product?.id && user?.interestMap?.[product.id];
     const [myInterestRecord, setMyInterestRecord] = useState<InterestDetail | null>(null);
+
+    // ==================== Edit Mode State ====================
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState({
+        description: product?.description || '',
+        manufacturer: product?.manufacturer || '',
+        model: product?.model || '',
+        quantity: product?.quantity || 1
+    });
+    const [updateLoading, setUpdateLoading] = useState(false);
+    const [updateStatus, setUpdateStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    const handleUpdate = async () => {
+        if (!product?.id) return;
+        setUpdateLoading(true);
+        setUpdateStatus(null);
+        try {
+            const response = await fetch(`${API_URL}/api/products/${product.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update product');
+            }
+
+            setUpdateStatus({ type: 'success', text: 'המוצר עודכן בהצלחה' });
+            setIsEditing(false);
+            setHasChanged(true);
+            await refetchProduct();
+        } catch (error: any) {
+            console.error('Error updating product:', error);
+            setUpdateStatus({ type: 'error', text: error.message || 'שגיאה בעדכון המוצר' });
+        } finally {
+            setUpdateLoading(false);
+            setTimeout(() => setUpdateStatus(null), 3000);
+        }
+    };
+
 
     // Removed seeding from local cache to prevent stale data display
     useEffect(() => {
@@ -611,10 +658,30 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
 
                                         {/* About Section */}
                                         <div className="space-y-4">
-                                            <h2 className="text-xl font-black text-gray-900">על המוצר :</h2>
-                                            <p className="text-gray-600 leading-relaxed">
-                                                {product.description}
-                                            </p>
+                                            <div className="flex items-center justify-between">
+                                                <h2 className="text-xl font-black text-gray-900">על המוצר :</h2>
+                                                {isOwner && (
+                                                    <button 
+                                                        onClick={() => setIsEditing(!isEditing)}
+                                                        className="p-2 rounded-full hover:bg-gray-100 transition-colors text-[#418EAB]"
+                                                        title={isEditing ? "בטל עריכה" : "ערוך פרטים"}
+                                                    >
+                                                        {isEditing ? <X className="w-5 h-5" /> : <Pencil className="w-5 h-5" />}
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {isEditing ? (
+                                                <textarea
+                                                    value={editData.description}
+                                                    onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                                                    className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#418EAB]/20 focus:border-[#418EAB] outline-none min-h-[120px] text-gray-700 leading-relaxed"
+                                                    dir="rtl"
+                                                />
+                                            ) : (
+                                                <p className="text-gray-600 leading-relaxed">
+                                                    {product.description}
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* Specs Table */}
@@ -628,11 +695,31 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
                                                     </div>
                                                     <div className="flex justify-between border-b border-gray-50 pb-2">
                                                         <span className="text-gray-400 font-medium">יצרן :</span>
-                                                        <span className="text-gray-700 font-bold">{product.manufacturer || '-'}</span>
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="text"
+                                                                value={editData.manufacturer}
+                                                                onChange={(e) => setEditData({ ...editData, manufacturer: e.target.value })}
+                                                                className="text-left border-b border-[#418EAB] focus:outline-none bg-transparent"
+                                                                dir="rtl"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-gray-700 font-bold">{product.manufacturer || '-'}</span>
+                                                        )}
                                                     </div>
                                                     <div className="flex justify-between border-b border-gray-50 pb-2">
                                                         <span className="text-gray-400 font-medium">דגם :</span>
-                                                        <span className="text-gray-700 font-bold">{product.model || '-'}</span>
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="text"
+                                                                value={editData.model}
+                                                                onChange={(e) => setEditData({ ...editData, model: e.target.value })}
+                                                                className="text-left border-b border-[#418EAB] focus:outline-none bg-transparent"
+                                                                dir="rtl"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-gray-700 font-bold">{product.model || '-'}</span>
+                                                        )}
                                                     </div>
                                                     <div className="flex justify-between border-b border-gray-50 pb-2">
                                                         <span className="text-gray-400 font-medium">מיקום :</span>
@@ -640,7 +727,16 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
                                                     </div>
                                                     <div className="flex justify-between border-b border-gray-50 pb-2">
                                                         <span className="text-gray-400 font-medium">כמות :</span>
-                                                        <span className="text-gray-700 font-bold">{product.quantity || 1}</span>
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                value={editData.quantity}
+                                                                onChange={(e) => setEditData({ ...editData, quantity: parseInt(e.target.value) || 0 })}
+                                                                className="w-16 text-left border-b border-[#418EAB] focus:outline-none bg-transparent"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-gray-700 font-bold">{product.quantity || 1}</span>
+                                                        )}
                                                     </div>
                                                     <div className="flex justify-between border-b border-gray-50 pb-2 md:col-span-2">
                                                         <span className="text-gray-400 font-medium">תיעוד רכישה :</span>
@@ -660,6 +756,44 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
                                                         </span>
                                                     </div>
                                                 </div>
+
+                                                {/* Edit Mode Actions */}
+                                                <AnimatePresence>
+                                                    {isEditing && (
+                                                        <motion.div 
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: 'auto' }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            className="mt-6 pt-6 border-t border-gray-100 flex flex-col items-center gap-4"
+                                                        >
+                                                            {updateStatus && (
+                                                                <div className={`text-sm font-bold px-4 py-2 rounded-xl w-full text-center ${updateStatus.type === 'success' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                                                                    {updateStatus.text}
+                                                                </div>
+                                                            )}
+                                                            <div className="flex items-center gap-4 w-full justify-center">
+                                                                <button
+                                                                    onClick={() => setIsEditing(false)}
+                                                                    className="px-6 py-2 rounded-xl border border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition-all text-sm"
+                                                                >
+                                                                    ביטול
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleUpdate}
+                                                                    disabled={updateLoading}
+                                                                    className="px-8 py-2 bg-[#6AA800] text-white rounded-xl font-bold hover:brightness-105 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-[#6AA800]/20 text-sm disabled:opacity-50"
+                                                                >
+                                                                    {updateLoading ? (
+                                                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        <Save className="w-4 h-4" />
+                                                                    )}
+                                                                    שמור שינויים
+                                                                </button>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
                                         </div>
 

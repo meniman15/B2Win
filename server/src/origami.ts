@@ -2083,3 +2083,64 @@ export async function updateInterestMessage(interestId: string, message: string)
         throw error;
     }
 }
+
+export async function updateProduct(productId: string, updates: any) {
+    if (!ORIGAMI_ACCOUNT_NAME || !ORIGAMI_USERNAME || !ORIGAMI_SECRET) {
+        throw new Error('Origami configuration is missing in .env');
+    }
+
+    const url = `https://${ORIGAMI_ACCOUNT_NAME}.origami.ms/entities/api/update_instance_fields/format/json`;
+
+    const fieldMapping: { [key: string]: string } = {
+        name: "fld_3142",
+        description: "fld_3143",
+        model: "fld_3399",
+        manufacturer: "fld_3400",
+        quantity: "fld_3032",
+        price: "fld_3031"
+    };
+
+    const fieldsToUpdate: [string, any][] = [];
+    for (const [key, value] of Object.entries(updates)) {
+        if (fieldMapping[key]) {
+            if (key === 'quantity' || key === 'price') {
+                fieldsToUpdate.push([fieldMapping[key], String(value)]);
+            } else {
+                fieldsToUpdate.push([fieldMapping[key], value]);
+            }
+        }
+    }
+
+    const body = {
+        username: ORIGAMI_USERNAME,
+        api_secret: ORIGAMI_SECRET,
+        entity_data_name: "e_175",
+        ov: "2",
+        filter: [
+            ["_id", "=", productId]
+        ],
+        field: fieldsToUpdate
+    };
+
+    try {
+        console.log(`Updating product ${productId} in Origami with fields:`, JSON.stringify(fieldsToUpdate));
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            const errorMsg = formatOrigamiError(data.error_message || data.error || 'Unknown error');
+            console.error('Origami Update Product Failed:', response.status, errorMsg);
+            throw new Error(errorMsg);
+        }
+
+        return { success: true, data };
+    } catch (error) {
+        console.error('Error updating product in Origami:', error);
+        throw error;
+    }
+}

@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import { mockCategories } from './data.js';
-import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getProductsBySubOrg, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus, getProductInterests, reportInterestSale, getProductById } from './origami.js';
+import { authenticateUser, registerUser, updateUserProfile, getOrganizations, getSubOrganizations, submitInterest, cancelInterest, getProducts, mapOrigamiProduct, getCategories, mapOrigamiCategory, getSubCategories, createProduct, getProductsBySeller, getProductsBySubOrg, getInterestedProductsByUserId, toggleProductLike, getLikedProductsByUserId, uploadFileToOrigami, getLocations, getQuestionsForProduct, createQuestion, answerQuestion, deleteQuestion, updateProductStatus, getProductInterests, reportInterestSale, getProductById, updateProduct } from './origami.js';
 import multer from 'multer';
 
 dotenv.config();
@@ -417,6 +417,22 @@ app.patch('/api/products/:id/status', async (req, res) => {
         res.status(500).json({ error: error.message || 'Internal server error updating product status' });
     }
 });
+
+app.patch('/api/products/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        if (!id || !updates) {
+            return res.status(400).json({ error: 'Product ID and updates are required' });
+        }
+        const result = await updateProduct(id, updates);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Update product error:', error);
+        res.status(500).json({ error: error.message || 'Internal server error updating product' });
+    }
+});
+
 
 app.post('/api/interests/:id/report', async (req, res) => {
     try {
