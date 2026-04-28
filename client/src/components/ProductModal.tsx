@@ -427,7 +427,7 @@ export default function ProductModal({ product: initialProduct, isOpen, onClose,
                                             </div>
 
                                             <div className="space-y-3">
-                                                {(isInterested || isOwner) ? (
+                                                {(isInterested || isOwner || (isAdmin && product.subOrganizationId === user?.subOrganizationId)) ? (
                                                     <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
                                                         {product.sellerEmail && (
                                                             (product.sellerEmail.length > 25) ? (

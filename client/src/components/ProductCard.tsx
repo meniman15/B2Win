@@ -18,6 +18,7 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
     const { user, updateUser } = auth;
     const isUserInterested = user && product.interestedUserIds?.includes(user.id || '');
     const isOwner = !!(user?.id && product?.sellerId && user.id === product.sellerId);
+    const isAdmin = !!(user?.isAdmin);
     
     const [isLiked, setIsLiked] = useState(false);
 
@@ -121,7 +122,7 @@ export default function ProductCard({ product, onClick, isLikedInit, onLikeToggl
                     </div>
                 </div>
                 <div className="text-[1.1rem] text-gray-400 font-bold mt-1">
-                    {product.location}
+                    {(isAdmin && product.subOrganizationId === user?.subOrganizationId) ? product.seller : product.location}
                 </div>
             </div>
         </div>
